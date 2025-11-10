@@ -13,7 +13,6 @@ STEAM_API_BASE_URL = "http://api.steampowered.com"
 def sync_steam_library(user_id: str, steam_id: str):
     """
     Busca os jogos na Steam E salva/atualiza no nosso banco de dados.
-    Esta função agora orquestra todo o processo.
     """
 
     # 1. BUSCAR DADOS DA API DA STEAM (igual a antes)
