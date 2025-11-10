@@ -2,8 +2,7 @@
 # (Remova o 'import uvicorn' se ainda estiver lá, não precisamos mais dele aqui)
 from fastapi import FastAPI
 from . import database
-# Importamos o objeto 'router' de dentro do nosso arquivo steam_router
-from .routers import steam_router # <-- Importação do novo router
+from .routers import steam_router
 
 app = FastAPI(title="GameTrack API") # Adicionando um título para a documentação
 db = database.db

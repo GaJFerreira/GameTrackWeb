@@ -1,68 +1,85 @@
-# app/services/steam_service.py
-import requests # Biblioteca para fazer chamadas HTTP
-from fastapi import HTTPException # Para retornar erros HTTP padronizados
-from ..config import settings # Para pegar nossa chave da API Steam
+# app/services/steam_services.py
+import requests
+from fastapi import HTTPException
+from pydantic import ValidationError # Para capturar erros de validação
 
-# URL base da API da Steam que vamos usar
+# Nossas novas importações
+from ..config import settings
+from ..models import game_model  # Importa o "trabalhador" do banco
+from ..schemas import game_schema # Importa os "moldes"
+
 STEAM_API_BASE_URL = "http://api.steampowered.com"
 
-def get_owned_games(steam_id: str):
+def sync_steam_library(user_id: str, steam_id: str):
     """
-    Esta função recebe um SteamID64 e busca os jogos da pessoa na API da Steam.
+    Busca os jogos na Steam E salva/atualiza no nosso banco de dados.
     """
-    print(f"Buscando jogos para o SteamID: {steam_id}") # Log para vermos no terminal
 
-    # Pegamos a chave da API que carregamos do .env através do config.py
+    # 1. BUSCAR DADOS DA API DA STEAM (igual a antes)
+    print(f"Iniciando sincronização para user_id: {user_id} (SteamID: {steam_id})")
     api_key = settings.steam_api_key
-
-    # Montamos a URL completa da API da Steam
-    # Documentação: https://developer.valvesoftware.com/wiki/Steam_Web_API#GetOwnedGames_.28v0001.29
     url = (
         f"{STEAM_API_BASE_URL}/IPlayerService/GetOwnedGames/v1/"
-        f"?key={api_key}"
-        f"&steamid={steam_id}"
-        f"&format=json"
-        f"&include_appinfo=true" # Pede para incluir nome e ícones dos jogos
-        f"&include_played_free_games=true" # Pede para incluir jogos gratuitos
+        f"?key={api_key}&steamid={steam_id}&format=json"
+        f"&include_appinfo=true&include_played_free_games=true"
     )
 
     try:
-        # Fazemos a chamada GET para a URL da Steam
-        # timeout=15 define um limite de 15 segundos para a resposta
         response = requests.get(url, timeout=15)
-
-        # Verifica se a resposta da Steam foi um erro (ex: 404 Não Encontrado, 500 Erro Interno)
         response.raise_for_status()
-
-        # Se chegou aqui, a chamada deu certo (status 200 OK)
-        # Pegamos o conteúdo da resposta em formato JSON (um dicionário Python)
         data = response.json()
 
-        # Verificamos se a estrutura da resposta é a esperada
-        # A API da Steam retorna um objeto 'response' que contém a lista 'games'
         if "response" not in data or "games" not in data["response"]:
-            # Se não encontrar 'games', pode ser um perfil privado ou ID inválido
-            # Usamos HTTPException para mandar um erro 404 de volta para o usuário
-            print(f"Resposta da Steam não contém 'games' para {steam_id}. Perfil privado?")
             raise HTTPException(
                 status_code=404,
                 detail="Não foi possível buscar os jogos. O perfil pode ser privado ou o SteamID inválido."
             )
 
-        # Se tudo deu certo, retornamos APENAS a lista de jogos
-        games_list = data["response"]["games"]
-        print(f"Encontrados {len(games_list)} jogos para {steam_id}")
-        return games_list
+        steam_games_list = data["response"]["games"]
+        print(f"Steam API retornou {len(steam_games_list)} jogos.")
 
-    # Tratamento de Erros Específicos do 'requests'
+        # 2. FORMATAR DADOS USANDO NOSSO "SCHEMA"
+        games_to_sync: list[game_schema.GameBase] = []
+        for game_dict in steam_games_list:
+            try:
+                # A API da Steam às vezes manda campos com nomes errados
+                # Vamos garantir que os campos principais existam
+                game_dict['name'] = game_dict.get('name', 'Nome Desconhecido')
+                game_dict['playtime_forever'] = game_dict.get('playtime_forever', 0)
+
+                # Usamos nosso "molde" GameBase para validar e formatar
+                # os dados brutos vindos da Steam.
+                # Isso automaticamente adiciona nossos campos padrão
+                # (status: "Não Jogado", tipo_cadastro: "Steam", etc.)
+                game_data = game_schema.GameBase(**game_dict)
+                games_to_sync.append(game_data)
+
+            except ValidationError as e:
+                # Se um jogo falhar na validação (ex: appid faltando),
+                # registramos o erro e continuamos para os outros.
+                print(f"Falha ao validar jogo {game_dict.get('appid', '??')}: {e}")
+
+        # 3. SALVAR DADOS NO FIREBASE (usando nosso "Model")
+        if not games_to_sync:
+             print("Nenhum jogo válido para sincronizar.")
+             return []
+
+        print(f"Enviando {len(games_to_sync)} jogos validados para o banco...")
+
+        # Chamamos nossa nova função do game_model para salvar em lote
+        saved_count = game_model.sync_steam_games_batch(user_id, games_to_sync)
+
+        print(f"Sincronização concluída. {saved_count} jogos salvos/atualizados para {user_id}.")
+        return games_to_sync # Retorna a lista de jogos que foram sincronizados
+
+    # Tratamento de erros (igual a antes)
     except requests.exceptions.Timeout:
-        print(f"Timeout ao buscar jogos para {steam_id}")
-        raise HTTPException(status_code=408, detail="A requisição para a API da Steam demorou muito (timeout).")
+         raise HTTPException(status_code=408, detail="A requisição para a API da Steam demorou muito.")
     except requests.exceptions.RequestException as e:
-        # Erros gerais de conexão ou HTTP que não foram tratados pelo raise_for_status
-        print(f"Erro de rede/HTTP ao chamar API da Steam para {steam_id}: {e}")
-        raise HTTPException(status_code=503, detail=f"Erro ao comunicar com a API da Steam: {e}")
+        print(f"Erro ao chamar API da Steam: {e}")
+        raise HTTPException(status_code=503, detail="Erro ao comunicar com a API da Steam.")
+    except HTTPException as http_exc:
+        raise http_exc # Re-lança a exceção de perfil privado
     except Exception as e:
-        # Qualquer outro erro inesperado durante o processo
-        print(f"Erro inesperado no steam_service para {steam_id}: {e}")
-        raise HTTPException(status_code=500, detail="Ocorreu um erro interno inesperado ao buscar jogos da Steam.")
+        print(f"Erro inesperado no serviço Steam: {e}")
+        raise HTTPException(status_code=500, detail=f"Ocorreu um erro interno no servidor: {e}")
