@@ -1,25 +1,61 @@
 # app/services/steam_services.py
 import requests
+import time  # Para adicionar um pequeno delay e evitar banimento da Store API
 from fastapi import HTTPException
-from pydantic import ValidationError # Para capturar erros de validação
+from pydantic import ValidationError
 
-# Nossas novas importações
+# Importações de outros módulos do nosso projeto
 from ..config import settings
-from ..models import game_model  # Importa o "trabalhador" do banco
-from ..schemas import game_schema # Importa os "moldes"
+from ..schemas import game_schema
+from ..models import game_model
 
-STEAM_API_BASE_URL = "http://api.steampowered.com"
+# URLs da API da Steam
+STEAM_PLAYER_API_URL = "http://api.steampowered.com"
+STEAM_STORE_API_URL = "https://store.steampowered.com/api/appdetails"
 
-def sync_steam_library(user_id: str, steam_id: str):
+
+def fetch_game_details_from_store(appid: int) -> dict:
     """
-    Busca os jogos na Steam E salva/atualiza no nosso banco de dados.
+    Busca informações ricas (gênero, descrição, desenvolvedor) da API da Loja Steam.
     """
+    # Usamos requests para buscar os detalhes
+    params = {
+        'appids': appid,
+        'filters': 'basic,categories,genres,developers,publishers',
+        'cc': 'br',  # Código do país (para garantir que a moeda esteja correta, embora busquemos dados)
+        'l': 'brazilian'  # Idioma (Português)
+    }
 
-    # 1. BUSCAR DADOS DA API DA STEAM (igual a antes)
-    print(f"Iniciando sincronização para user_id: {user_id} (SteamID: {steam_id})")
+    try:
+        # Adiciona um pequeno delay de 0.1 segundo para evitar atingir o limite de requisições da Store API
+        time.sleep(0.1)
+
+        response = requests.get(STEAM_STORE_API_URL, params=params, timeout=10)
+        response.raise_for_status()
+
+        data = response.json()
+
+        # O Store API retorna um dicionário onde a chave é o AppID (string)
+        if str(appid) in data and data[str(appid)].get('success') is True:
+            return data[str(appid)].get('data', {})
+
+        return {"error": "Detalhes não encontrados."}
+
+    except requests.exceptions.RequestException as e:
+        print(f"Erro ao buscar detalhes da Loja Steam para {appid}: {e}")
+        return {"error": f"Erro de conexão com a Loja Steam."}
+
+
+def sync_steam_library(user_id: str, steam_id: str) -> list[game_schema.GameBase]:
+    """
+    Busca os jogos na Steam, enriquece os dados, e salva/atualiza no Firestore.
+    """
+    print(f"Iniciando sincronização (e enriquecimento) para user_id: {user_id} (SteamID: {steam_id})")
+
+    # 1. BUSCAR JOGOS (API DE POSSES)
     api_key = settings.steam_api_key
     url = (
-        f"{STEAM_API_BASE_URL}/IPlayerService/GetOwnedGames/v1/"
+        f"{STEAM_PLAYER_API_URL}/IPlayerService/GetOwnedGames/v1/"
         f"?key={api_key}&steamid={steam_id}&format=json"
         f"&include_appinfo=true&include_played_free_games=true"
     )
@@ -36,50 +72,69 @@ def sync_steam_library(user_id: str, steam_id: str):
             )
 
         steam_games_list = data["response"]["games"]
-        print(f"Steam API retornou {len(steam_games_list)} jogos.")
+        print(f"API de Posses retornou {len(steam_games_list)} jogos. Iniciando Enriquecimento...")
 
-        # 2. FORMATAR DADOS USANDO NOSSO "SCHEMA"
+        # 2. ENRIQUECER, FORMATAR E VALIDAR
         games_to_sync: list[game_schema.GameBase] = []
         for game_dict in steam_games_list:
-            try:
-                # A API da Steam às vezes manda campos com nomes errados
-                # Vamos garantir que os campos principais existam
-                game_dict['name'] = game_dict.get('name', 'Nome Desconhecido')
-                game_dict['playtime_forever'] = game_dict.get('playtime_forever', 0)
 
-                # Usamos nosso "molde" GameBase para validar e formatar
-                # os dados brutos vindos da Steam.
-                # Isso automaticamente adiciona nossos campos padrão
-                # (status: "Não Jogado", tipo_cadastro: "Steam", etc.)
+            # Garante que o appid existe para evitar erro
+            if 'appid' not in game_dict:
+                continue
+
+            try:
+                appid = game_dict['appid']
+
+                # A. CHAMADA PARA ENRIQUECER DADOS
+                details = fetch_game_details_from_store(appid)
+
+                # B. Mapeamento dos novos campos para o dicionário do jogo
+                if details.get('error'):
+                    print(f"Alerta: Falha ao enriquecer jogo {appid}. {details.get('error')}")
+                else:
+                    # Gêneros: transforma a lista de dicionários em uma string separada por vírgula
+                    game_dict['genero'] = ', '.join(
+                        [g['description'] for g in details.get('genres', [])]) if details.get('genres') else None
+
+                    # Desenvolvedores/Publishers: lista de strings em uma única string
+                    game_dict['desenvolvedor'] = ', '.join(details.get('developers', [])) if details.get(
+                        'developers') else None
+                    game_dict['publisher'] = ', '.join(details.get('publishers', [])) if details.get(
+                        'publishers') else None
+
+                    # Descrição: Pega a descrição curta
+                    game_dict['descricao'] = details.get('short_description', None)
+
+                # C. Validação e Formatação (uso do Schema)
+                # O **game_dict transforma o dicionário em um objeto GameBase
                 game_data = game_schema.GameBase(**game_dict)
                 games_to_sync.append(game_data)
 
             except ValidationError as e:
-                # Se um jogo falhar na validação (ex: appid faltando),
-                # registramos o erro e continuamos para os outros.
-                print(f"Falha ao validar jogo {game_dict.get('appid', '??')}: {e}")
+                print(f"Falha ao validar/formatar jogo {appid}: {e}")
+            except Exception as e:
+                print(f"Erro inesperado durante o loop de enriquecimento para {appid}: {e}")
 
-        # 3. SALVAR DADOS NO FIREBASE (usando nosso "Model")
+        # 3. SALVAR DADOS NO FIREBASE (usando o Model em lote)
         if not games_to_sync:
-             print("Nenhum jogo válido para sincronizar.")
-             return []
+            print("Nenhum jogo válido para sincronizar.")
+            return []
 
         print(f"Enviando {len(games_to_sync)} jogos validados para o banco...")
 
-        # Chamamos nossa nova função do game_model para salvar em lote
+        # Chamamos a função de model para salvar em lote
         saved_count = game_model.sync_steam_games_batch(user_id, games_to_sync)
 
-        print(f"Sincronização concluída. {saved_count} jogos salvos/atualizados para {user_id}.")
-        return games_to_sync # Retorna a lista de jogos que foram sincronizados
+        print(f"Sincronização concluída. {saved_count} jogos salvos/atualizados.")
+        return games_to_sync
 
-    # Tratamento de erros (igual a antes)
     except requests.exceptions.Timeout:
-         raise HTTPException(status_code=408, detail="A requisição para a API da Steam demorou muito.")
+        raise HTTPException(status_code=408, detail="A requisição para a API da Steam demorou muito.")
     except requests.exceptions.RequestException as e:
         print(f"Erro ao chamar API da Steam: {e}")
         raise HTTPException(status_code=503, detail="Erro ao comunicar com a API da Steam.")
     except HTTPException as http_exc:
-        raise http_exc # Re-lança a exceção de perfil privado
+        raise http_exc
     except Exception as e:
         print(f"Erro inesperado no serviço Steam: {e}")
         raise HTTPException(status_code=500, detail=f"Ocorreu um erro interno no servidor: {e}")
