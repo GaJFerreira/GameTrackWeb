@@ -7,142 +7,146 @@ Gabriel Jose Ferreira Nunes Ribeiro, Pedro Henrique M. Eichler, Wesley Leonardo 
 
 ## 1. Resumo Executivo
 
-O projeto **GameTrack** consiste no desenvolvimento de uma plataforma web para auxiliar jogadores da plataforma **Steam** a gerenciar suas extensas bibliotecas de jogos digitais.
+O **GameTrack** é uma plataforma web desenvolvida para auxiliar jogadores da Steam a superar a "síndrome do backlog" ou "síndrome do PC gamer". O sistema centraliza a biblioteca de jogos digitais, oferecendo ferramentas avançadas de organização e controle para transformar uma coleção massiva de títulos em uma experiência de lazer organizada e gratificante.
 
-Utilizando uma arquitetura moderna com **backend em Python**, **frontend em Next.js** e **banco de dados e autenticação providos pelo Firebase**, o sistema permitirá que os usuários importem seus jogos, organizem-nos por status e interesse, e planejem suas sessões de jogatina.
-
-O diferencial do projeto é a aplicação de um **algoritmo de Inteligência Artificial** que analisará o perfil e histórico do jogador para gerar recomendações personalizadas, sugerindo quais jogos do seu backlog ele tem maior probabilidade de jogar e finalizar — combatendo assim a *"síndrome do backlog"*.
+O diferencial do projeto é a combinação de organização de produtividade com um algoritmo de Inteligência Artificial que analisará o perfil e histórico do jogador para gerar recomendações personalizadas, sugerindo quais jogos do seu backlog ele tem maior probabilidade de jugar e finalizar.
 
 ---
 
 ## 2. Introdução
 
-Este projeto está sendo desenvolvido por uma equipe de estudantes de tecnologia como parte de um trabalho acadêmico multidisciplinar.
+Este projeto está sendo desenvolvido por uma equipe de estudantes de tecnologia como parte de um trabalho acadêmico multidisciplinar. O mercado atual de jogos digitais, especialmente na Steam, facilita o acúmulo de jogos por meio de promoções, resultando em bibliotecas com centenas de títulos não jogados. Isso leva ao paradoxo da escolha, onde o jogador passa mais tempo decidindo o que jogar do que jogando.
 
-A situação atual do mercado de jogos digitais, especialmente na plataforma Steam, é caracterizada pelo fácil acúmulo de jogos através de promoções, resultando em bibliotecas com centenas de títulos não jogados. Essa abundância gera um **paradoxo de escolha**, onde o jogador passa mais tempo decidindo o que jogar do que efetivamente jogando.
-
-O **GameTrack** nasce da necessidade de uma ferramenta inteligente e centralizada para transformar essa coleção massiva de jogos em uma experiência de lazer organizada e gratificante.
+O GameTrack surge como uma ferramenta inteligente e centralizada para transformar essa coleção massiva em uma experiência de lazer mais eficiente e prazerosa.
 
 ---
 
 ## 3. Problema / Oportunidade
 
-**Problema:**  
-O crescimento exponencial de bibliotecas de jogos digitais leva a um fenômeno conhecido como *"síndrome do backlog"* ou *"síndrome do PC gamer"*. Jogadores acumulam dezenas ou centenas de jogos que nunca iniciam, gerando ansiedade, sensação de desperdício financeiro e dificuldade de organização. Ferramentas atuais de gerenciamento são, em sua maioria, manuais e não oferecem insights sobre qual jogo priorizar com base no comportamento do usuário.
+### Problema
+O crescimento das bibliotecas digitais gera a "síndrome do backlog" — quando os jogadores acumulam jogos que nunca iniciam, gerando ansiedade e sensação de desperdício. As ferramentas atuais não oferecem recomendações ou insights baseados no comportamento do usuário.
 
-**Oportunidade:**  
-Existe a oportunidade de criar uma solução que não apenas organiza, mas também **guia o usuário de forma inteligente**. Ao aplicar IA para analisar o perfil do jogador (gêneros preferidos, jogos finalizados, tempo de jogo), o **GameTrack** pode oferecer recomendações proativas e personalizadas, aumentando o engajamento do usuário com sua própria biblioteca e otimizando seu tempo de lazer.
+### Oportunidade
+Criar uma solução que vai além da organização, oferecendo recomendações inteligentes com base no perfil do jogador, aumentando o engajamento com sua própria biblioteca e otimizando seu tempo de lazer.
 
 ---
 
-## 4. Objetivos
+## 4. Funcionalidades Principais Detalhadas
+
+O GameTrack oferece um ambiente completo para o usuário gerenciar sua biblioteca de jogos e metas relacionadas ao backlog.
+
+### 4.1. Importação e Organização da Biblioteca Steam
+- **Importação Automática:** integração com API da Steam para carregar a biblioteca do usuário.
+- **Enriquecimento de Dados:** metadados como gênero, desenvolvedor e descrição via Steam Store API.
+- **Status de Jogo:** categorização com status como *Não Iniciado*, *Jogando*, *Finalizado*, *Pausado* ou *Abandonado*.
+
+### 4.2. Sistema de Metas e Tarefas
+O usuário pode criar metas por jogo, com tipos:
+- **TEMPO:** estipular horas estimadas de jogo.
+- **CONCLUSÃO:** definir uma data limite (*data_limite*) para finalizar o jogo.
+
+Status das metas: *EM_ANDAMENTO*, *CONCLUIDA* ou *EXPIRADA*.
+
+### 4.3. Recomendação Inteligente
+O sistema utiliza algoritmos de classificação para sugerir quais jogos o usuário deve jogar com base em seu perfil e histórico.
+
+---
+
+## 5. Objetivos
 
 ### Objetivo Geral
-Desenvolver uma aplicação web funcional e intuitiva que se integre à **API da Steam** para organizar bibliotecas de jogos e fornecer recomendações inteligentes baseadas em IA para ajudar os usuários a gerenciar seu backlog.
+Desenvolver uma aplicação web funcional e intuitiva integrada à API da Steam para organizar bibliotecas de jogos e gerar recomendações inteligentes.
 
-### Objetivos Específicos (Metodologia SMART)
-
-- **Autenticação:**  
-  - **Específico:** Desenvolver um sistema de autenticação de usuários seguro utilizando o Firebase Authentication.  
-  - **Mensurável:** Permitir cadastro, login e gerenciamento de sessão de usuários.  
-  - **Alcançável:** A tecnologia do Firebase é bem documentada e adequada para este fim.  
-  - **Relevante:** Essencial para a personalização e segurança dos dados.  
-  - **Temporal:** Concluir até o final do **1º mês** de desenvolvimento.
-
-- **Importação da Biblioteca Steam:**  
-  - **Específico:** Implementar a funcionalidade de importação automática da biblioteca via API da Steam.  
-  - **Mensurável:** Exibir corretamente a lista de jogos após fornecer o SteamID64.  
-  - **Alcançável:** A API da Steam fornece os endpoints necessários.  
-  - **Relevante:** Funcionalidade central para alimentação de dados.  
-  - **Temporal:** Concluir até o final do **1º mês**.
-
-- **Modelo de IA:**  
-  - **Específico:** Criar um modelo de classificação para prever a probabilidade de o usuário finalizar um jogo do backlog.  
-  - **Mensurável:** Gerar uma lista ordenada de jogos recomendados.  
-  - **Alcançável:** Utilizando Python e Scikit-learn com os dados coletados.  
-  - **Relevante:** Principal diferencial da plataforma.  
-  - **Temporal:** Desenvolver e integrar até o final do **3º mês**.
-
-- **Deploy da Aplicação:**  
-  - **Específico:** Realizar o deploy do backend e frontend em ambiente de nuvem.  
-  - **Mensurável:** A aplicação deve estar acessível publicamente via URL.  
-  - **Alcançável:** Usando Vercel (frontend) e Render/Heroku (backend).  
-  - **Relevante:** Entrega final do projeto funcional.  
-  - **Temporal:** Concluir na **última semana do projeto**.
+### Objetivos Específicos (SMART)
+- **Autenticação:** Integrar com Firebase Authentication. _Prazo: 1º mês._
+- **Importação da Biblioteca Steam:** Concluir integração com API da Steam. _Prazo: 1º mês._
+- **Modelo de IA:** Treinar modelo de classificação para recomendações. _Prazo: até o 3º mês._
+- **Deploy da Aplicação:** Publicar backend e frontend. _Prazo: última semana do projeto._
 
 ---
 
-## 5. Escopo do Projeto
+## 6. Escopo do Projeto
 
 ### Entregas
+- Cadastro e login de usuários
+- Dashboard com visualização da biblioteca da Steam
+- Alteração manual de status de jogo
+- Metas e tarefas de jogatina
+- Página de recomendações com IA
+- Adição de SteamID de familiares
 
-- Aplicação web responsiva com cadastro e login de usuários.  
-- Painel de usuário para visualização da biblioteca importada da Steam.  
-- Funcionalidade para alterar o status de cada jogo (*"Quero Jogar"*, *"Jogando"*, *"Finalizado"*, *"Abandonado"*).  
-- Página de recomendações com lista priorizada pela IA.  
-- Funcionalidade para adicionar manualmente o SteamID de membros da família.
-
-### Limites do Projeto (Não incluído no escopo)
-
-- Integração com outras lojas (Epic Games, GOG, etc.).  
-- Funcionalidades sociais (amigos, chat, fóruns).  
-- Lançamento de jogos pela plataforma.  
-- Sincronização de dados em tempo real (atualizações sob demanda).
+### Fora do Escopo Inicial
+- Integração com outras lojas (Epic, GOG, etc.)
 
 ---
 
-## 6. Metodologia e Plano de Ação
+## 7. Metodologia e Plano de Ação
 
-O projeto seguirá uma abordagem **ágil**, dividida em fases com entregas incrementais.
+Abordagem ágil com entregas incrementais:
 
-### Fase 1 – Planejamento e Estruturação (Semanas 1–2)
-- Definição da arquitetura.  
-- Design do banco no Firestore.  
-- Configuração do ambiente (Python/Next.js).  
-- Criação do projeto no Firebase.
-
-### Fase 2 – Desenvolvimento do Core (Semanas 3–8)
-- Implementação da autenticação.  
-- Integração com a API da Steam.  
-- Desenvolvimento das telas principais do frontend.
-
-### Fase 3 – IA e Funcionalidades Adicionais (Semanas 9–12)
-- Coleta e tratamento de dados para o modelo de IA.  
-- Treinamento do algoritmo e criação do endpoint de recomendação.  
-- Implementação da funcionalidade *"Família Steam"*.
-
-### Fase 4 – Testes, Refinamento e Deploy (Semanas 13–16)
-- Testes integrados.  
-- Ajustes de UI/UX.  
-- Configuração de CI/CD (GitHub Actions).  
-- Deploy final.
+| Fase | Atividade | Duração |
+|------|-----------|---------|
+| Fase 1 | Planejamento e configuração | Semanas 1–2 |
+| Fase 2 | Desenvolvimento do core (auth, API Steam) | Semanas 3–8 |
+| Fase 3 | IA e funcionalidades adicionais | Semanas 9–12 |
+| Fase 4 | Testes, refinamento e deploy | Semanas 13–16 |
 
 ---
 
-## 7. Cronograma
+## 8. Cronograma
 
-| Fase | Atividade Principal | Duração Estimada |
-|------|---------------------|------------------|
-| **Mês 1** | Planejamento, Configuração de Ambiente, Autenticação e API Steam | 4 semanas |
-| **Mês 2** | Desenvolvimento do Dashboard e CRUD de Jogos (Frontend/Backend) | 4 semanas |
-| **Mês 3** | Desenvolvimento e Treinamento do Modelo de IA, Feature "Família Steam" | 4 semanas |
-| **Mês 4** | Testes Finais, Refinamentos e Deploy da Aplicação | 4 semanas |
+| Mês | Atividade Principal |
+|-----|---------------------|
+| 1   | Setup, Autenticação, API Steam |
+| 2   | Dashboard e CRUD de Jogos |
+| 3   | Modelo de IA e Família Steam |
+| 4   | Testes, Refinamentos e Deploy |
+
+---
+
+## 9. Arquitetura de Desenvolvimento
+
+### 9.1. Backend, Banco e Segurança
+- **Framework:** FastAPI (Python)
+- **Autenticação:** Firebase Authentication
+- **Banco de Dados:** Firestore
+- **Estrutura:** Subcoleções `users/{user_id}/games`
+- **Otimização:** Escritas em lote com batch
+
+### 9.2. Frontend
+- **Framework:** Next.js 16 (App Router)
+- **Linguagem:** TypeScript
+- **Estilização:** Tailwind CSS (Design Tokens em OKLCH)
+- **Tipografia:** Fonte Geist
+
+### 9.3. DevOps
+- Controle de versão via GitHub
 
 ---
 
-## 8. Recursos
+## 10. Modelo de IA e Expansão de Escopo
 
-### Recursos Humanos
-- Equipe acadêmica com desenvolvedores para **backend**, **frontend** e **IA**.
+### 10.1. Implementação da IA
+- **Algoritmo:** Modelos de classificação
+- **Objetivo:** Recomendar jogos com base nos hábitos do usuário
 
-### Recursos Materiais
-- **Hardware:** Computadores pessoais para desenvolvimento.  
-- **Software:** Python, Node.js, VS Code, Git, Docker (opcional).  
-- **Serviços/Contas:** GitHub, Google (Firebase), API Steam, Vercel.
-
-### Recursos Financeiros (Estimativa)
-- **Custo Estimado:** R$ 0,00  
-  O projeto será desenvolvido utilizando camadas gratuitas (*free tier*) dos serviços necessários (Firebase Spark Plan, Vercel Hobby, etc.), suficientes para o escopo acadêmico.
+### 10.2. Expansão Futura
+- Suporte a múltiplas plataformas
+- Recomendação externa
+- Recurso social / Steam Family
 
 ---
-****
+
+## 11. Recursos
+
+### Humanos
+Equipe acadêmica com desenvolvedores backend, frontend e IA.
+
+### Materiais
+- **Hardware:** Computadores pessoais
+- **Software:** Python, Node.js, VS Code, Git, Docker
+- **Serviços:** GitHub, Firebase, Steam API, Vercel
+
+### Financeiros
+- **Custo estimado:** R$ 0,00 (camadas gratuitas dos serviços)
+
