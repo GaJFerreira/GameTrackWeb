@@ -1,7 +1,10 @@
 # app/routers/user_router.py
+from typing import List
+
 from fastapi import APIRouter, HTTPException
 from ..schemas.user_schema import UserCreate, User  # Importa o Schema corrigido
 from ..services import user_service  # Importa o Serviço
+
 
 router = APIRouter(
     prefix="/users",
@@ -26,6 +29,10 @@ def register_user(payload: UserCreate):  # FastAPI usa o Schema para validar o J
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro interno no serviço de registro: {e}")
 
+
+@router.get("/", response_model=List[User])
+def list_users() -> List[User]:
+    return user_service.get_all_users()
 
 # 2. Rota de Busca (GET) - Chama o Serviço
 # Adicione a validação de resposta para garantir que o JSON retornado é um objeto User
