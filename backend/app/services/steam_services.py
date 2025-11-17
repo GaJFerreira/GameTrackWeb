@@ -1,10 +1,9 @@
 # app/services/steam_services.py
 import requests
-import time  # Para adicionar um pequeno delay e evitar banimento da Store API
+import time
 from fastapi import HTTPException
 from pydantic import ValidationError
 
-# Importações de outros módulos do nosso projeto
 from ..config import settings
 from ..schemas import game_schema
 from ..models import game_model

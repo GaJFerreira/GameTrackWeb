@@ -1,7 +1,7 @@
 # app/main.py
 from fastapi import FastAPI
 from . import database
-from .routers import steam_router, user_router, game_router, meta_router
+from .routers import steam_router, user_router, game_router, meta_router, recommendations_router
 
 app = FastAPI(title="GameTrack API")
 db = database.db
@@ -11,6 +11,7 @@ app.include_router(steam_router.router, prefix="/api")
 app.include_router(user_router.router, prefix="/api")
 app.include_router(game_router.router, prefix="/api")
 app.include_router(meta_router.router, prefix="/api")
+app.include_router(recommendations_router.router, prefix="/api")
 
 # Rota raiz
 @app.get("/")
