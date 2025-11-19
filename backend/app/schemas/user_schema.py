@@ -1,24 +1,25 @@
+# app/schemas/user_schema.py
 from pydantic import BaseModel, EmailStr
-from typing import List, Optional
-
+from typing import Optional
 
 class UserBase(BaseModel):
-
     email: EmailStr
-    password: str
-    steam_id: str
-
+    steam_id: str 
+    
+    personaname: Optional[str] = None
+    realname: Optional[str] = None
+    avatar: Optional[str] = None
+    profileurl: Optional[str] = None
+    loccountrycode: Optional[str] = None
 
 class UserCreate(UserBase):
+    password: str 
 
-    # Não pedimos o ID na criação.
-    pass
-
+class UserUpdate(BaseModel):
+    steam_id: Optional[str] = None
 
 class User(UserBase):
-
     id: str
-
+    
     class Config:
-
         from_attributes = True
