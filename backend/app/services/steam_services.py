@@ -1,4 +1,3 @@
-# app/services/steam_services.py
 import requests
 import time
 from fastapi import HTTPException
@@ -15,7 +14,7 @@ def fetch_game_details_from_store(appid: int) -> dict:
     params = {
         'appids': appid,
         'cc': 'br',
-        'l': 'brazilian' # Alterado para 'brazilian' que é o padrão da API
+        'l': 'brazilian'
     }
 
     try:
@@ -27,7 +26,6 @@ def fetch_game_details_from_store(appid: int) -> dict:
         
         data = response.json()
 
-        # CORREÇÃO: 'datap' -> 'data' e 'sucess' -> 'success'
         if str(appid) in data and data[str(appid)].get('success') is True:
             return data[str(appid)].get('data', {})
         
@@ -41,15 +39,13 @@ def fetch_game_details_from_store(appid: int) -> dict:
         print(f"Erro inesperado ao buscar detalhes do jogo: {e}")
         return {"error": f"Erro inesperado: {str(e)}"}
 
-# CORREÇÃO: Nome da função corrigido (fech -> fetch)
 def fetch_total_achievements(appid: int) -> int: 
-    # CORREÇÃO: settings.steam_api_key (minúsculo)
+    
     API_URL = f"{STEAM_PLAYER_API_URL}/ISteamUserStats/GetSchemaForGame/v2/?key={settings.steam_api_key}&appid={appid}"
     try:
         response = requests.get(API_URL, timeout=5)
         if response.status_code == 200:
             data = response.json()
-            # CORREÇÃO: availableGameStatus -> availableGameStats
             achievements = data.get('game', {}).get('availableGameStats', {}).get('achievements')
             return len(achievements) if achievements else 0
             
@@ -57,7 +53,7 @@ def fetch_total_achievements(appid: int) -> int:
         pass
     return 0
 
-# ADICIONADO: Função que estava faltando
+
 def fetch_player_achievements(steam_id: str, appid: int) -> int:
     API_URL = f"{STEAM_PLAYER_API_URL}/ISteamUserStats/GetPlayerAchievements/v1/?key={settings.steam_api_key}&steamid={steam_id}&appid={appid}"
     try:
@@ -94,6 +90,7 @@ def sync_steam_library(user_id: str, steam_id: str) -> list:
         print(f"Encontrados {len(steam_games)} jogos. Iniciando enriquecimento (pode demorar)...")
 
         games_to_sync = []
+        ignored_count = 0
         
         for game_dict in steam_games:
             if 'appid' not in game_dict: continue
@@ -103,6 +100,12 @@ def sync_steam_library(user_id: str, steam_id: str) -> list:
             full_details = fetch_game_details_from_store(appid)
             
             if not full_details.get('error'):
+
+                app_type = full_details.get('type', '').lower()
+                if app_type != 'game':
+                    ignored_count += 1
+                    continue
+
                 game_dict['dados_loja'] = full_details
                 
                 game_dict['descricao'] = full_details.get('short_description')
@@ -112,22 +115,47 @@ def sync_steam_library(user_id: str, steam_id: str) -> list:
                 
                 if 'genres' in full_details:
                     game_dict['genero'] = ', '.join([g['description'] for g in full_details['genres']])
+
                 if 'developers' in full_details:
                     game_dict['desenvolvedor'] = ', '.join(full_details['developers'])
+
                 if 'publishers' in full_details:
                     game_dict['publisher'] = ', '.join(full_details['publishers'])
-                if 'categories' in full_details:
-                    game_dict['categorias'] = ', '.join([c['description'] for c in full_details['categories']])
-
-                game_dict['requisitos'] = full_details.get('pc_requirements')
-                # ADICIONADO: Mapeamento de preço
-                game_dict['preco'] = full_details.get('price_overview')
-                
+               
                 if 'metacritic' in full_details:
                     game_dict['metacritic'] = full_details['metacritic'].get('score')
                 
                 if 'release_date' in full_details:
                     game_dict['data_lancamento'] = full_details['release_date'].get('date')
+
+                if 'playtime_forever' in game_dict:
+                    game_dict['horas_jogadas'] = round(game_dict['playtime_forever'] / 60)
+                    game_dict['status'] = 'Iniciado' if game_dict['horas_jogadas'] > 0 else 'Não Iniciado'
+                             
+                game_dict['preco'] = None
+                if 'price_overview' in full_details:
+                    price_info = full_details['price_overview']
+                    game_dict['preco'] = {
+                        'moeda': price_info.get('currency'),
+                        'preco_original': price_info.get('initial'),
+                        'preco_final': price_info.get('final'),
+                        'desconto_percentual': price_info.get('discount_percent')
+                    }
+
+                game_dict['categorias'] = None
+                if 'categories' in full_details:
+                    cats = full_details['categories']
+                    if isinstance(cats, list):
+                        cat_descriptions = [c.get('description', '') for c in cats if isinstance(c, dict) and 'description' in c]
+                        if cat_descriptions:
+                            game_dict['categorias'] = ', '.join(cat_descriptions) 
+                    
+                pc_recs = full_details.get('pc_requirements', {})
+                if isinstance(pc_recs,list):
+                    pc_recs = {}
+
+                game_dict['requisitos_recomendados'] = pc_recs.get('recommended')
+                game_dict['requisitos_minimos'] = pc_recs.get('minimum')
 
             game_dict['conquistas_totais'] = fetch_total_achievements(appid)
             

@@ -1,4 +1,3 @@
-# app/schemas/user_schema.py
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 
@@ -23,3 +22,9 @@ class User(UserBase):
     
     class Config:
         from_attributes = True
+
+class UserRegisterResponse(BaseModel):
+    user: User
+    user_id_gerado: str
+    game_count: int
+    sync_status: str
