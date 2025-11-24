@@ -4,103 +4,268 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import MultiLabelBinarizer 
 from fastapi import HTTPException
 from typing import List, Dict, Any
+from datetime import datetime
+from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
+from sklearn.metrics import accuracy_score, roc_auc_score
+from sklearn.neighbors import KNeighborsClassifier 
+from sklearn.svm import SVC
 
 from ..models import game_model  
-from ..schemas.game_schema import GameStatus  
+from ..schemas.game_schema import GameStatus, InteresseNivel
+
+def get_model(model_type: str = "logistic"):
+    if model_type == "random_forest":
+        return RandomForestClassifier(
+            n_estimators=100, 
+            class_weight="balanced", 
+            random_state=42,
+            max_depth=10
+        )
+    
+    elif model_type == "xgbo ost":
+        return XGBClassifier(
+            use_label_encoder=False,
+            eval_metric="logloss",
+            scale_pos_weight=5,
+            random_state=42
+        )
+    
+    elif model_type == "knn":
+        return KNeighborsClassifier(
+            n_neighbors=5,
+            weights="distance",
+        )
+    
+    elif model_type == "svm":
+        return SVC(
+            kernel="rbf",
+            probability=True,
+            random_state=42,
+           class_weight="balanced" 
+        )
+    
+    else:
+        return LogisticRegression(
+            solver="liblinear",
+            class_weight="balanced",
+            random_state=42
+        )
+    
+
+def analyze_data_coverage(games_list: list) -> List[str]:
+    df = pd.DataFrame(games_list)
+    warnings = []
+
+    if "status" not in df.columns:
+        return warnings
+
+    jogos_nao_iniciados = df[df["status"] == GameStatus.nao_iniciado.value]
+    total = len(jogos_nao_iniciados)
+
+    if total == 0:
+        return warnings
+
+    interesse_na = jogos_nao_iniciados[
+        (jogos_nao_iniciados["interesse"].isnull()) |
+        (jogos_nao_iniciados["interesse"] == InteresseNivel.na.value) |
+        (jogos_nao_iniciados["interesse"] == "N/A")
+    ]
+
+    if len(interesse_na) > 0:
+        pct = round(len(interesse_na) / total * 100)
+        warnings.append(
+            f"{pct}% dos jogos no backlog estão com Nível de Interesse 'N/A'. "
+            "Defina Baixo, Médio ou Alto para melhorar as recomendações."
+        )
+
+    nota_na = jogos_nao_iniciados[
+        (jogos_nao_iniciados["nota_pessoal"].isnull()) |
+        (jogos_nao_iniciados["nota_pessoal"] == 0)
+    ]
+
+    if len(nota_na) > 0:
+        pct = round(len(nota_na) / total * 100)
+        warnings.append(
+            f"{pct}% dos jogos no backlog estão sem Nota Pessoal (0). "
+            "Avalie de 1 a 10 para enriquecer o modelo."
+        )
+
+    return warnings
 
 
 def prepare_data_for_ai(games_list: list) -> pd.DataFrame | None:
-
-    if not games_list or len(games_list) < 10: 
+    if not games_list or len(games_list) < 10:
         return None
 
     df = pd.DataFrame(games_list)
-    
-    # 1. CRIAÇÃO DA VARIÁVEL ALVO (TARGET)
-    # 1 (Sim) se o status do jogo for "Finalizado", 0 (Não) caso contrário.
-    df['target_finalizado'] = df['status'].apply(
+
+    if "status" not in df.columns:
+        return None
+
+    df["target_finalizado"] = df["status"].apply(
         lambda x: 1 if x == GameStatus.finalizado.value else 0
     )
-    
-    # 2. ENGENHARIA DE FEATURES NUMÉRICAS
-    df['playtime_forever'] = df['playtime_forever'].fillna(0)
-    df['log_playtime'] = df['playtime_forever'].apply(lambda x: np.log1p(x))
-    
-    # 3. PROCESSAMENTO DE GÊNEROS (ONE-HOT ENCODING)
-    # O objetivo é transformar a string de gêneros em colunas binárias numéricas.
-    df['genero'] = df['genero'].fillna('') 
-    df['genero_list'] = df['genero'].astype(str).str.split(', ')
 
-    mlb = MultiLabelBinarizer()
-    generos_binarios = mlb.fit_transform(df['genero_list'])
-    
-    # Cria um DataFrame para os gêneros, prefixando com 'gen_'
-    genero_df = pd.DataFrame(generos_binarios, columns=[f'gen_{g}' for g in mlb.classes_])
-    
-    # Concatena as colunas de gênero com o DataFrame principal
-    df = pd.concat([df.reset_index(drop=True), genero_df.reset_index(drop=True)], axis=1)
-    
-    # 4. Retorno Final
-    # Seleciona as colunas de features criadas
-    feature_cols = [col for col in df.columns if col.startswith('gen_') or col in ['log_playtime']]
+    df["playtime_forever"] = df.get("playtime_forever", 0).fillna(0)
+    df["log_playtime"] = df["playtime_forever"].apply(lambda x: np.log1p(x))
 
-    return df.fillna(0)[feature_cols + ['target_finalizado', 'appid', 'name', 'status', 'genero']].copy()
+    df["nota_pessoal"] = df.get("nota_pessoal", 0).fillna(0)
 
+    df["metacritic"] = df.get("metacritic", 0).fillna(0)
 
-def generate_recommendations(user_id: str) -> List[Dict[str, Any]]:
-    """
-    Busca os dados do usuário, treina o modelo de classificação e gera as recomendações.
-    """
-    # 1. BUSCAR DADOS DO BANCO E PREPARAR
-    games_list = game_model.get_user_games(user_id) 
-    processed_df = prepare_data_for_ai(games_list)
-    
-    # Verifica se há dados suficientes para treinar a IA
-    if processed_df is None or processed_df[processed_df['status'] != GameStatus.nao_iniciado.value].empty:
-        raise HTTPException(status_code=404, detail="Dados insuficientes para treinar a IA. Você precisa ter mais de 10 jogos e ter finalizado/jogado alguns.")
+    df["genero"] = df.get("genero", "").fillna("")
+    df["genero_list"] = df["genero"].astype(str).str.split(", ")
 
-    # 2. SEPARAR DADOS DE TREINAMENTO E PREDIÇÃO
-    # Treinamento: Jogos com resultado conhecido (finalizado ou jogando/abandonado)
-    df_train = processed_df[processed_df['status'] != GameStatus.nao_iniciado.value]
-    
-    # Predição: Jogos do backlog (status 'Não Iniciado')
-    df_predict = processed_df[processed_df['status'] == GameStatus.nao_iniciado.value]
-    
-    if df_predict.empty:
-        return [{"message": "Parabéns! Você já jogou todos os seus jogos!"}] 
+    mlb_gen = MultiLabelBinarizer()
+    genero_bin = mlb_gen.fit_transform(df["genero_list"])
+    genero_df = pd.DataFrame(genero_bin, columns=[f"gen_{g}" for g in mlb_gen.classes_])
 
-    # Colunas de Features (X)
-    train_features = [col for col in df_train.columns if col.startswith('gen_') or col in ['log_playtime']]
-    
-    X_train = df_train[train_features]
-    y_train = df_train['target_finalizado']
-    
-    # 3. TREINAMENTO DO MODELO (Regressão Logística)
-    # class_weight='balanced' ajuda o modelo a lidar com o desbalanceamento de classes (poucos jogos finalizados)
-    model = LogisticRegression(solver='liblinear', random_state=42, class_weight='balanced')
-    model.fit(X_train, y_train)
-    
-    # 4. PREDIÇÃO
-    # X_predict deve ter as mesmas colunas que X_train
-    X_predict = df_predict[train_features].fillna(0)
-    
-    # Preve a probabilidade de o jogo ser finalizado (coluna [:, 1] é a probabilidade do "1")
-    probabilities = model.predict_proba(X_predict)[:, 1]
-    
-    # Adiciona as probabilidades ao DataFrame de previsão
-    df_predict = df_predict.copy()
-    df_predict['probabilidade_finalizar'] = probabilities
-    
-    # 5. RETORNAR AS TOP RECOMENDAÇÕES
-    
-    # Classifica os jogos pela maior probabilidade e pega os 10 primeiros
-    top_recommendations = df_predict.sort_values(by='probabilidade_finalizar', ascending=False)
-    
-    recommendations_list = top_recommendations[['appid', 'name', 'probabilidade_finalizar', 'genero']].head(10).to_dict('records')
+    df["categorias"] = df.get("categorias", "").fillna("")
+    df["categoria_list"] = df["categorias"].astype(str).str.split(", ")
 
-    # Converte a probabilidade para porcentagem (Ex: 0.85 -> 85.00)
-    for rec in recommendations_list:
-        rec['probabilidade_finalizar'] = round(rec['probabilidade_finalizar'] * 100, 2)
-        rec['appid'] = int(rec['appid']) 
+    mlb_cat = MultiLabelBinarizer()
+    cat_bin = mlb_cat.fit_transform(df["categoria_list"])
+    categoria_df = pd.DataFrame(cat_bin, columns=[f"cat_{c}" for c in mlb_cat.classes_])
+
+    df["interesse"] = df.get("interesse", "N/A").fillna("N/A")
+    interesse_map = {"N/A": 0, "Baixo": 1, "Médio": 2, "Alto": 3}
+    df["nivel_interesse_numerico"] = df["interesse"].map(interesse_map).fillna(0)
+
+    meses_pt_en = {
+        "jan.": "Jan", "fev.": "Feb", "mar.": "Mar", "abr.": "Apr",
+        "mai.": "May", "jun.": "Jun", "jul.": "Jul", "ago.": "Aug",
+        "set.": "Sep", "out.": "Oct", "nov.": "Nov", "dez.": "Dec"
+    }
+
+    def limpar_e_converter_data(data_str: str):
+        if not isinstance(data_str, str) or not data_str.strip():
+            return pd.NaT
+
+        data_lower = data_str.lower()
         
-    return recommendations_list
+        for pt, en in meses_pt_en.items():
+            if pt in data_lower:
+                data_lower = data_lower.replace(pt, en)
+                break
+
+        return pd.to_datetime(data_lower, errors="coerce")
+
+    def calcular_idade_lancamento(data_str: str) -> int:
+        date_obj = limpar_e_converter_data(data_str)
+        
+        if pd.isna(date_obj):
+            return 0
+            
+        return (datetime.now() - date_obj).days
+
+    df["idade_lancamento_dias"] = df.get("data_lancamento", "").apply(calcular_idade_lancamento)
+    
+
+    def extract_log_final_price(price_data):
+        if isinstance(price_data, dict):
+            price_raw = price_data.get("preco_final")
+            if isinstance(price_raw, (int, float)):
+                return np.log1p(price_raw / 100)
+        return 0
+
+    df["log_final_price"] = df.get("preco", None).apply(extract_log_final_price)
+
+    df = pd.concat([df.reset_index(drop=True), genero_df, categoria_df], axis=1)
+
+    numeric_features = [
+        "log_playtime",
+        "nota_pessoal",
+        "metacritic",
+        "nivel_interesse_numerico",
+        "idade_lancamento_dias",
+        "log_final_price"
+    ]
+
+    feature_cols = [
+        col for col in df.columns
+        if col.startswith("gen_") or col.startswith("cat_") or col in numeric_features
+    ]
+
+    required = ["name", "target_finalizado", "appid", "status", "genero"]
+    for col in required:
+        if col not in df.columns:
+            df[col] = None
+
+    df_final = df[feature_cols + required].fillna(0)
+
+    return df_final.copy()
+
+
+
+def generate_recommendations(user_id: str) -> Dict[str, Any]:
+    
+    games_list = game_model.get_user_games(user_id)
+    warnings = analyze_data_coverage(games_list)
+
+    processed_df = prepare_data_for_ai(games_list)
+
+    if processed_df is None or processed_df[processed_df["status"] == GameStatus.nao_iniciado.value].empty:
+        raise HTTPException(status_code=404, detail="Dados insuficientes para IA.")
+
+    df_train = processed_df[processed_df["status"] != GameStatus.nao_iniciado.value]
+    df_predict = processed_df[processed_df["status"] == GameStatus.nao_iniciado.value]
+
+    if df_train.empty:
+        raise HTTPException(status_code=400, detail="Você precisa jogar alguns jogos para treinar a IA.")
+
+    train_features = [
+        col for col in processed_df.columns
+        if col.startswith("gen_")
+        or col.startswith("cat_")
+        or col in [
+            "log_playtime",
+            "nota_pessoal",
+            "metacritic",
+            "nivel_interesse_numerico",
+            "idade_lancamento_dias",
+            "log_final_price"
+        ]
+    ]
+
+    X_train = df_train[train_features]
+    y_train = df_train["target_finalizado"]
+
+    unique_classes = np.unique(y_train)
+
+    df_predict = df_predict.copy()
+
+    if len(unique_classes) < 2:
+        df_predict["probabilidade_finalizar"] = 0.5
+
+    else:
+        model = get_model("random_forest")  # Opções: "logistic", "random_forest", "xgboost", "knn", "svm"
+
+    try:
+        model.fit(X_train, y_train)
+        
+        preds_train = model.predict(X_train)
+        print(f"Acurácia no Treino ({type(model).__name__}): {accuracy_score(y_train, preds_train):.2f}")
+
+        X_pred = df_predict[train_features].reindex(columns=train_features, fill_value=0)
+        
+        df_predict["probabilidade_finalizar"] = model.predict_proba(X_pred)[:, 1]
+
+    except Exception as e:
+         raise HTTPException(status_code=500, detail=f"Erro no modelo IA: {e}")
+
+    ranked = df_predict.sort_values(by="probabilidade_finalizar", ascending=False)
+
+    final_list = []
+    for _, row in ranked.head(10).iterrows():
+        final_list.append({
+            "appid": int(row["appid"]),
+            "name": str(row["name"]),
+            "probabilidade_finalizar": round(float(row["probabilidade_finalizar"]) * 100, 2),
+            "genero": str(row["genero"])
+        })
+
+    return {
+        "recommendations": final_list,
+        "warnings": warnings
+    }

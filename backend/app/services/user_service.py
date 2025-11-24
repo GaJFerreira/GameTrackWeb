@@ -1,4 +1,3 @@
-# app/services/user_service.py (Versão Final Corrigida)
 import uuid
 from typing import List
 
@@ -10,8 +9,7 @@ from .steam_services import sync_steam_library, fetch_steam_user_profile
 
 def create_user_and_sync_steam(user_data: UserCreate) -> dict:
 
-    new_user_id = str(uuid.uuid4())
-    
+    new_user_id = str(uuid.uuid4())   
     user_dict = user_data.model_dump()
     user_dict['id'] = new_user_id 
 
@@ -25,8 +23,7 @@ def create_user_and_sync_steam(user_data: UserCreate) -> dict:
     else:
         print("Aviso: Não foi possível buscar dados do perfil Steam (ou perfil privado).")
 
-    user_to_save = User(**user_dict) 
-    
+    user_to_save = User(**user_dict)     
     user_created = user_model.create_user(new_user_id, user_to_save)
     
     if not user_created:
@@ -47,7 +44,7 @@ def create_user_and_sync_steam(user_data: UserCreate) -> dict:
         print(f"Alerta: {sync_status_message}")
         
     return {
-        "user": user_to_save.model_dump(), # Agora inclui avatar e personaname!
+        "user": user_to_save.model_dump(),
         "user_id_gerado": new_user_id,
         "game_count": synced_games_count,
         "sync_status": sync_status_message
@@ -66,6 +63,3 @@ def get_user(user_id: int) -> User:
         return None
 
     return User(**user_data)
-
-
-#test
