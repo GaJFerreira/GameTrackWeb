@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+pydantic
+pydantic-settings
+sqlalchemy
+python-dotenv
+firebase-admin
+requests
+xgboost
+scikit-learn
+numpy
+pandas
+pytest
+httpx
+python-multipart
