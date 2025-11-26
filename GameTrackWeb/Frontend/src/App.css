@@ -1,0 +1,48 @@
+/* src/App.css */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+body {
+  background-color: #050505; /* Fundo quase preto */
+  color: #000000;
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+}
+
+/* Customização do Vermelho da marca */
+.btn-brand-red {
+  background-color: #8a0000;
+  border: none;
+  color: white;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+.btn-brand-red:hover {
+  background-color: #a30000;
+  color: white;
+  transform: translateY(-2px);
+}
+
+/* Tag azul neon acima de títulos */
+.tag-badge {
+  background-color: rgba(37, 99, 235, 0.1);
+  color: #3b82f6;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: inline-block;
+  margin-bottom: 1rem;
+}
+
+/* Inputs Escuros */
+.form-control-dark {
+  background-color: #121212;
+  border: 1px solid #333;
+  color: white;
+}
+.form-control-dark:focus {
+  background-color: #121212;
+  color: white;
+  border-color: #8a0000;
+  box-shadow: 0 0 0 0.25rem rgba(138, 0, 0, 0.25);
+}
