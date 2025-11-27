@@ -13,3 +13,4 @@ pandas
 pytest
 httpx
 python-multipart
+email-validator
