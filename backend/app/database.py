@@ -1,13 +1,27 @@
 import firebase_admin
 from firebase_admin import credentials, firestore
-from .config import settings
+from app.config import settings
 
-cred = credentials.Certificate(settings.firebase_credentials_path)
+firebase_app = None
+db = None
 
-try:
-    firebase_admin.get_app()
-except ValueError:
-    firebase_admin.initialize_app(cred)
+# Só inicializa Firebase se tiver caminho válido
+if settings.firebase_credentials_path:
+    try:
+        cred = credentials.Certificate(settings.firebase_credentials_path)
 
-print("Firebase Admin SDK inicializado com sucesso.")
-db = firestore.client()
+        # evita inicialização duplicada
+        try:
+            firebase_app = firebase_admin.get_app()
+        except ValueError:
+            firebase_app = firebase_admin.initialize_app(cred)
+
+        db = firestore.client()
+
+        print("Firebase Admin SDK inicializado com sucesso.")
+
+    except Exception as e:
+        # Evita crash no pytest / CI
+        print(f"Firebase não inicializado: {e}")
+else:
+    print("Firebase ignorado (settings.firebase_credentials_path vazio).")

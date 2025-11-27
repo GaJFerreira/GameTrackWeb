@@ -1,34 +1,23 @@
 from fastapi import APIRouter, HTTPException
-import requests
+from app.services.steam_services import SteamService
 
-router = APIRouter(
-    prefix="/steam",
-    tags=["Steam"]
-)
+router = APIRouter(prefix="/steam", tags=["Steam"])
 
-STEAM_API_KEY = "DD1FEAF37B051DF765EEB8BC119628A1"  # não importa para o teste
+steam_service = SteamService()
 
 @router.post("/sync/{user_id}/{steam_id}")
-def sync_games(user_id: str, steam_id: str):
-    url = (
-        "http://api.steampowered.com/IPlayerService/GetOwnedGames/v1/"
-        f"?key={STEAM_API_KEY}&steamid={steam_id}&format=json"
-        "&include_appinfo=true&include_played_free_games=true"
-    )
-
+def sync_steam_library(user_id: str, steam_id: str):
+    """
+    Endpoint esperado pelos testes:
+    POST /steam/sync/{user_id}/{steam_id}
+    """
     try:
-        print(f"Iniciando sincronização completa para {user_id}...")
-        resp = requests.get(url)
-
-        # Se a Steam devolveu erro, não estoura 500 → retorna 400
-        if resp.status_code >= 400:
-            print(f"Erro da Steam: {resp.status_code} - {resp.text}")
-            return {"error": "Steam API error", "status": resp.status_code}
-
-        data = resp.json()
-        return {"message": "Sync OK", "data": data}
-
+        games = steam_service.sync_library(user_id, steam_id)
+        return {
+            "message": "Sincronização concluída.",
+            "games_synced": len(games)
+        }
+    except HTTPException as e:
+        raise e
     except Exception as e:
-        # QUALQUER erro interno vira 400, não 500
-        print(f"Erro fatal na sincronização: {e}")
-        raise HTTPException(status_code=400, detail="Erro ao sincronizar com a Steam")
+        raise HTTPException(status_code=500, detail=str(e))

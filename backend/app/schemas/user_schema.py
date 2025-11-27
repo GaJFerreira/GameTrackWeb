@@ -1,5 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional
+from pydantic import ConfigDict
+
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -11,17 +13,20 @@ class UserBase(BaseModel):
     profileurl: Optional[str] = None
     loccountrycode: Optional[str] = None
 
+
 class UserCreate(UserBase):
     password: str 
+
 
 class UserUpdate(BaseModel):
     steam_id: Optional[str] = None
 
+
 class User(UserBase):
     id: str
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
 
 class UserRegisterResponse(BaseModel):
     user: User
