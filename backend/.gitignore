@@ -2,13 +2,22 @@
 .venv/
 venv/
 
-# Arquivos PyCharm
+# Arquivos do PyCharm/IntelliJ
 .idea/
 
 # Arquivos de segredos
 .env
-*.json
+secrets.json
+config.local.json
+firebase-credentials.json
 
 # Cache do Python
 *.pyc
-__pycache__
+__pycache__/
+
+# Logs
+*.log
+
+# Diretórios de build (opcional)
+build/
+dist/
