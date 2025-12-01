@@ -1,24 +1,103 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { FaSync } from 'react-icons/fa';
 import GameCard from '../components/GameCard';
+import api from '../services/api';
 
 const Biblioteca = () => {
-  const myGames = [
-    { id: 1, title: 'Elden Ring', genre: 'RPG', rating: 5.0, hours: 210, image: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=400' },
-    { id: 2, title: 'God of War', genre: 'Ação', rating: 4.9, hours: 45, image: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=400' },
-    { id: 3, title: 'Hollow Knight', genre: 'Indie', rating: 4.8, hours: 30, image: 'https://images.unsplash.com/photo-1542751110-97427bbecf20?auto=format&fit=crop&w=400' },
-    { id: 4, title: 'Valorant', genre: 'FPS', rating: 4.2, hours: 500, image: 'https://images.unsplash.com/photo-1552820728-8b83bb6b773f?auto=format&fit=crop&w=400' },
-  ];
+  const [games, setGames] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [userData, setUserData] = useState(null);
+  const [syncing, setSyncing] = useState(false);
+  
+  const getGameImage = (game) => {
+    if (!game.img_logo_url) {
+      return "https://via.placeholder.com/400x220?text=Sem+Imagem";
+    }
+    
+    if (game.img_logo_url.startsWith('http')) {
+      return game.img_logo_url;
+    }
+
+    return `http://media.steampowered.com/steamcommunity/public/images/apps/${game.appid}/${game.img_logo_url}.jpg`;
+  };
+
+  const fetchData = async () => {
+    try {
+      const authResponse = await api.get('/auth/me');
+      const firebaseUid = authResponse.data.user.uid;
+
+      const userResponse = await api.get(`/users/${firebaseUid}`);
+      setUserData(userResponse.data);
+
+      const gamesResponse = await api.get(`/games/${firebaseUid}`);
+      setGames(gamesResponse.data);
+
+    } catch (error) {
+      console.error("Erro ao carregar:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleSync = async () => {
+    if (!userData) return;
+    setSyncing(true);
+
+    try {
+      await api.post(`/steam/sync/${userData.id}/${userData.steam_id}`);
+      alert("Sincronização finalizada! Atualizando lista...");
+      
+      const gamesResponse = await api.get(`/games/${userData.id}`);
+      setGames(gamesResponse.data);
+
+    } catch (error) {
+      console.error("Erro no sync:", error);
+      alert("Erro ao sincronizar. Tente novamente.");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  if (loading) return <div className="text-white text-center mt-5">Carregando...</div>;
 
   return (
     <div className="container py-5">
-      <h2 className="text-white fw-bold mb-4">Minha Biblioteca</h2>
-      <div className="row g-4">
-        {myGames.map((game, idx) => (
-          <div key={idx} className="col-6 col-md-3">
-            <GameCard {...game} />
-          </div>
-        ))}
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h2 className="text-white fw-bold m-0">Minha Biblioteca</h2>
+        <button 
+          className="btn btn-outline-primary d-flex align-items-center gap-2"
+          onClick={handleSync}
+          disabled={syncing || !userData}
+        >
+          {syncing ? <span className="spinner-border spinner-border-sm"></span> : <FaSync />}
+          {syncing ? ' Sincronizando...' : ' Sincronizar Steam'}
+        </button>
       </div>
+
+      {games.length === 0 ? (
+        <div className="text-center text-secondary mt-5">
+          <p>Nenhum jogo encontrado.</p>
+          <p>Clique no botão acima para importar da Steam.</p>
+        </div>
+      ) : (
+        <div className="row g-4">
+          {games.map((game) => (
+            <div key={game.appid} className="col-6 col-md-3">
+              <GameCard 
+                title={game.name} 
+                genre={game.genero || "Gênero não definido"} 
+                rating={game.nota_pessoal || 0} 
+                hours={game.horas_jogadas || 0} 
+                image={getGameImage(game)}
+              />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

@@ -3,7 +3,6 @@ from pydantic import ConfigDict
 from typing import Optional, Dict, Any, Union
 from enum import Enum
 
-
 class GameStatus(str, Enum):
     iniciado = "Iniciado"
     nao_iniciado = "Não Iniciado"
@@ -12,25 +11,21 @@ class GameStatus(str, Enum):
     pausado = "Pausado"
     abandonado = "Abandonado"
 
-
 class InteresseNivel(str, Enum):
     na = "N/A"
     alto = "Alto"
     medio = "Médio"
     baixo = "Baixo"
 
-
 class TipoCadastro(str, Enum):
     manual = "Manual"
     steam = "Steam"
-
 
 class precoDetalhes(BaseModel):
     moeda: Optional[str] = None
     preco_original: Optional[int] = None
     preco_final: Optional[int] = None
     desconto_percentual: Optional[int] = None
-
 
 class requisitosMinimos(BaseModel):
     os: Optional[str] = None
@@ -42,7 +37,6 @@ class requisitosMinimos(BaseModel):
     armazenamento: Optional[str] = None
     outras_observacoes: Optional[str] = None
 
-
 class requisitosRecomendados(BaseModel):
     os: Optional[str] = None
     processador: Optional[str] = None
@@ -52,7 +46,6 @@ class requisitosRecomendados(BaseModel):
     rede: Optional[str] = None
     armazenamento: Optional[str] = None
     outras_observacoes: Optional[str] = None
-
 
 class GameBase(BaseModel):
     appid: int
@@ -88,12 +81,10 @@ class GameBase(BaseModel):
     data_lancamento: Optional[str] = None
     metacritic: Optional[int] = None
 
-    # Substitui o antigo Config
     model_config = ConfigDict(
         use_enum_values=True,
         extra="ignore"
     )
-
 
 class GameCreate(GameBase):
     pass
@@ -104,9 +95,7 @@ class GameUpdate(BaseModel):
     status: Optional[GameStatus] = None
     nota_pessoal: Optional[int] = None
 
-
 class Game(GameBase):
-    # Substitui o antigo Config
     model_config = ConfigDict(
         from_attributes=True,
         use_enum_values=True
