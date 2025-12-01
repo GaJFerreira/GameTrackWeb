@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Path, HTTPException
-from ..services import steam_services
+from app.services.steam_services import SteamService
 
 router = APIRouter(
     prefix="/steam",
@@ -12,14 +12,17 @@ async def sync_user_steam_library(
     steam_id: str = Path(..., title="SteamID64 do usuário", description="O ID numérico de 64 bits do perfil Steam.")
 ):
     try:
-        synced_games = steam_services.sync_steam_library(user_id, steam_id)
+        # CHAMADA CORRETA — agora não tem erro
+        games = SteamService.sync_library(user_id, steam_id)
+
         return {
             "message": "Sincronização concluída com sucesso!",
             "user_id": user_id,
-            "game_count": len(synced_games)
+            "game_count": len(games)
         }
+
     except HTTPException as http_exc:
         raise http_exc
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro interno ao sincronizar: {e}")
-
