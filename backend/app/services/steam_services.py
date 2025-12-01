@@ -14,8 +14,7 @@ class SteamService:
     """
     Wrapper apenas para permitir monkeypatch no Pytest.
     """
-    @staticmethod
-    def sync_library(user_id: str, steam_id: str):
+    def sync_library(self, user_id: str, steam_id: str):
         return sync_steam_library(user_id, steam_id)
 
 
