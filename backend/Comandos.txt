@@ -1,0 +1,3 @@
+Para executar o backend abra o terminal e va para a pasta \backend\
+Depois inicie o ambiente virtual com o comando: .\venv\Scripts\Activate
+Com o ambiente iniciado agora inicie o programa com o comando: uvicorn app.main:app --reload  

@@ -4,6 +4,8 @@ from pydantic import BaseModel, EmailStr
 from firebase_admin import auth
 import requests
 from ..config import settings
+from ..schemas.user_schema import UserCreate
+from ..services import user_service
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 security = HTTPBearer()
@@ -11,7 +13,7 @@ security = HTTPBearer()
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
-    display_name: str | None = None
+    steam_id: str
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -28,14 +30,35 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
 @router.post("/register")
 def register_user(body: RegisterRequest):
     try:
-        user = auth.create_user(
+        user_firebase = auth.create_user(
             email=body.email,
             password=body.password,
-            display_name=body.display_name
+            display_name=body.steam_id
         )
-        return {"message": "Usuário criado com sucesso.", "uid": user.uid}
-    except Exception as e:
+
+        user_data_service = UserCreate(
+            email=body.email,
+            steam_id=body.steam_id,
+            password=body.password,
+            personaname=body.steam_id, 
+        )
+
+        result = user_service.create_user_and_sync_steam(
+            user_data_service, 
+            user_id_firebase=user_firebase.uid
+        )
+
+        return {
+            "message": "Usuário criado e sincronizado com sucesso.",
+            "uid": user_firebase.uid,
+            "steam_sync": result.get("sync_status"),
+            "games_found": result.get("game_count")
+        }
+    except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"Erro no registro: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/login")
 def login_user(body: LoginRequest):
