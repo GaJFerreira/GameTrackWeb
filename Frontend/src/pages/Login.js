@@ -1,38 +1,18 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import api from '../services/api';
 
-const Login = () => {
-  const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+// Recebemos a função onLogin vinda do App.js
+const Login = ({ onLogin }) => {
+  const navigate = useNavigate(); // Hook para redirecionar o usuário
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    setError('');
-    setLoading(true);
-
-    try {
-      const response = await api.post('/auth/login', {
-        email: email,
-        password: password
-      });
-
-      const { id_token, refresh_token } = response.data;
-
-      localStorage.setItem('token', id_token);
-      localStorage.setItem('refreshToken', refresh_token);
-
-      navigate('/biblioteca'); 
-      
-    } catch (err) {
-      console.error(err);
-      setError("Email ou senha inválidos.");
-    } finally {
-      setLoading(false);
-    }
+    
+    // AQUI VALIDARIA NO BACKEND (Futuro)
+    // Por enquanto, apenas simulamos o sucesso:
+    
+    onLogin(); // 1. Avisa o App que logou
+    navigate('/perfil'); // 2. Redireciona para o Perfil
   };
 
   return (
@@ -41,37 +21,16 @@ const Login = () => {
         <h2 className="fw-bold mb-2 text-center">Bem-vindo de volta</h2>
         <p className="text-secondary text-center mb-4">Acesse sua biblioteca de jogos</p>
         
-        {error && <div className="alert alert-danger small py-2">{error}</div>}
-
         <form onSubmit={handleSubmit}>
           <div className="mb-3">
             <label className="form-label text-secondary small">Email</label>
-            <input 
-              type="email" 
-              className="form-control form-control-dark" 
-              placeholder="seu@email.com" 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+            <input type="email" required className="form-control form-control-dark" placeholder="seu@email.com" />
           </div>
           <div className="mb-4">
             <label className="form-label text-secondary small">Senha</label>
-            <input 
-              type="password" 
-              className="form-control form-control-dark" 
-              placeholder="••••••••" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <input type="password" required className="form-control form-control-dark" placeholder="••••••••" />
           </div>
-          <button 
-            className="btn btn-brand-red w-100 py-2 fw-bold mb-3"
-            disabled={loading}
-          >
-            {loading ? 'Entrando...' : 'Entrar'}
-          </button>
+          <button type="submit" className="btn btn-brand-red w-100 py-2 fw-bold mb-3">Entrar</button>
         </form>
         
         <p className="text-center text-secondary small">
