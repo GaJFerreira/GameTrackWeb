@@ -1,11 +1,11 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks # <--- 1. Importar BackgroundTasks
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
 from firebase_admin import auth
 import requests
 from ..config import settings
 from ..schemas.user_schema import UserCreate
-from ..services import user_service
+from ..services import user_service, steam_services 
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 security = HTTPBearer()
@@ -27,9 +27,11 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     except Exception:
         raise HTTPException(status_code=401, detail="Token inválido ou expirado")
 
+
 @router.post("/register")
-def register_user(body: RegisterRequest):
+def register_user(body: RegisterRequest, background_tasks: BackgroundTasks):
     try:
+        
         user_firebase = auth.create_user(
             email=body.email,
             password=body.password,
@@ -43,17 +45,24 @@ def register_user(body: RegisterRequest):
             personaname=body.steam_id, 
         )
 
-        result = user_service.create_user_and_sync_steam(
+        result = user_service.register_user_db(
             user_data_service, 
             user_id_firebase=user_firebase.uid
         )
 
+        print(f"Agendando sincronização em background para {user_firebase.uid}...")
+        background_tasks.add_task(
+            steam_services.sync_steam_library, 
+            user_id=user_firebase.uid, 
+            steam_id=body.steam_id
+        )
+
         return {
-            "message": "Usuário criado e sincronizado com sucesso.",
+            "message": "Conta criada! Seus jogos aparecerão na biblioteca em breve.",
             "uid": user_firebase.uid,
-            "steam_sync": result.get("sync_status"),
-            "games_found": result.get("game_count")
+            "background_sync": "Iniciado"
         }
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
