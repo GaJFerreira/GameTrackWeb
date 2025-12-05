@@ -1,61 +1,70 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import GameCard from '../components/GameCard';
-import { FaRobot, FaChartLine, FaInfoCircle } from 'react-icons/fa';
+import api from '../services/api';
+import { FaRobot, FaChartLine, FaExclamationTriangle, FaSync } from 'react-icons/fa';
 
 const Recomendacoes = () => {
-  // Simulação dos dados retornados pela sua IA (Python/Backend)
-  const aiRecommendations = [
-    { 
-      id: 101, 
-      title: 'Dark Souls III', 
-      genre: 'Action RPG', 
-      rating: 4.8, 
-      hours: 60, 
-      image: 'https://images.unsplash.com/photo-1599582200230-03a0d9b4b09b?auto=format&fit=crop&w=600',
-      matchScore: 98, // Porcentagem de chance de terminar
-      reason: 'Baseado no seu amor por Elden Ring'
-    },
-    { 
-      id: 102, 
-      title: 'Hades', 
-      genre: 'Roguelike', 
-      rating: 4.9, 
-      hours: 45, 
-      image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=600',
-      matchScore: 85,
-      reason: 'Alta compatibilidade com mecânicas rápidas'
-    },
-    { 
-      id: 103, 
-      title: 'Starfield', 
-      genre: 'RPG / Espacial', 
-      rating: 4.2, 
-      hours: 100, 
-      image: 'https://images.unsplash.com/photo-1614728853913-1e2221b01a69?auto=format&fit=crop&w=600',
-      matchScore: 64,
-      reason: 'Você gosta do gênero, mas costuma abandonar jogos muito longos'
-    },
-    { 
-      id: 104, 
-      title: 'Returnal', 
-      genre: 'Bullet Hell', 
-      rating: 4.5, 
-      hours: 30, 
-      image: 'https://images.unsplash.com/photo-1627856014759-0852292467d9?auto=format&fit=crop&w=600',
-      matchScore: 45,
-      reason: 'Estilo de jogo diferente do seu habitual'
-    },
-  ];
+  const [recommendations, setRecommendations] = useState([]);
+  const [warnings, setWarnings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // Função para definir a cor da "Tag" baseada na porcentagem
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      try {
+        setLoading(true);
+        // 1. Pega ID do usuário
+        const authResponse = await api.get('/auth/me');
+        const firebaseUid = authResponse.data.user.uid;
+
+        // 2. Busca recomendações da IA
+        const response = await api.get(`/recommendations/${firebaseUid}`);
+        
+        setRecommendations(response.data.recommendations || []);
+        setWarnings(response.data.warnings || []);
+
+      } catch (err) {
+        console.error("Erro ao buscar recomendações:", err);
+        // Tratamento para quando a IA não tem dados suficientes (404 ou 400)
+        if (err.response && (err.response.status === 404 || err.response.status === 400)) {
+          setError(err.response.data.detail);
+        } else {
+          setError("Falha ao conectar com o serviço de IA.");
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRecommendations();
+  }, []);
+
+  // Helper para cor da probabilidade
   const getMatchColor = (score) => {
-    if (score >= 90) return '#10b981'; // Verde (Muito provável)
-    if (score >= 70) return '#f59e0b'; // Amarelo (Provável)
-    return '#ef4444'; // Vermelho (Arriscado)
+    if (score >= 80) return '#10b981'; // Verde
+    if (score >= 50) return '#f59e0b'; // Amarelo
+    return '#ef4444'; // Vermelho
   };
+
+  // Helper para imagem (mesma lógica da Biblioteca para garantir qualidade)
+  const getGameImage = (appid) => {
+    return `https://cdn.akamai.steamstatic.com/steam/apps/${appid}/header.jpg`;
+  };
+
+  if (loading) {
+    return (
+      <div className="container py-5 text-center">
+        <div className="spinner-border text-primary mb-3" role="status"></div>
+        <h4 className="text-white">Analisando seu perfil de jogador...</h4>
+        <p className="text-secondary">Nossa IA está calculando as melhores sugestões para você.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container py-5">
+      
       {/* Cabeçalho da IA */}
       <div className="d-flex align-items-center mb-5 p-4 rounded-4 bg-dark border border-primary border-opacity-25 shadow-lg">
         <div className="bg-primary bg-opacity-10 p-3 rounded-circle me-3">
@@ -64,58 +73,81 @@ const Recomendacoes = () => {
         <div>
           <h2 className="text-white fw-bold mb-1">Análise de Compatibilidade IA</h2>
           <p className="text-secondary mb-0">
-            Nosso modelo analisou seu perfil e calculou a probabilidade de você <strong>zerar</strong> estes jogos.
+            Algoritmo baseado em <strong>Random Forest</strong> analisando seus jogos finalizados vs. abandonados.
           </p>
         </div>
       </div>
 
-      <div className="row g-4">
-        {aiRecommendations.map(game => (
-          <div key={game.id} className="col-md-3">
-            
-            {/* Renderizamos o Card */}
-            <GameCard 
-              id={game.id}
-              title={game.title}
-              genre={game.genre}
-              rating={game.rating}
-              hours={game.hours}
-              image={game.image}
-              // A tag agora mostra a porcentagem
-              tag={`${game.matchScore}% Chance de Zerar`}
-              // A cor muda dinamicamente (Verde/Amarelo/Vermelho)
-              tagColor={getMatchColor(game.matchScore)}
-            />
-
-            {/* Painel de Detalhes da IA (Abaixo do Card) */}
-            <div className="mt-3 px-2">
-              {/* Barra de Progresso Visual */}
-              <div className="d-flex justify-content-between align-items-center mb-1">
-                <small className="text-secondary fw-bold" style={{fontSize: '0.7rem'}}>MATCH SCORE</small>
-                <small className="fw-bold" style={{color: getMatchColor(game.matchScore)}}>{game.matchScore}%</small>
-              </div>
-              
-              <div className="progress bg-dark border border-secondary border-opacity-25 mb-3" style={{ height: '6px' }}>
-                <div 
-                  className="progress-bar" 
-                  role="progressbar" 
-                  style={{ 
-                    width: `${game.matchScore}%`, 
-                    backgroundColor: getMatchColor(game.matchScore),
-                    borderRadius: '10px'
-                  }} 
-                ></div>
-              </div>
-              
-              {/* Motivo da Recomendação */}
-              <div className="d-flex align-items-start text-secondary bg-black bg-opacity-25 p-2 rounded-3 border border-secondary border-opacity-10">
-                <FaChartLine className="me-2 mt-1 flex-shrink-0" style={{ color: getMatchColor(game.matchScore) }} />
-                <span style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>{game.reason}</span>
-              </div>
-            </div>
+      {/* Exibição de Avisos da IA (se houver) */}
+      {warnings.length > 0 && (
+        <div className="alert alert-warning border-0 rounded-4 mb-5 d-flex align-items-center">
+          <FaExclamationTriangle className="me-3 fs-4" />
+          <div>
+            <h6 className="fw-bold mb-1">Dica para melhorar as recomendações:</h6>
+            <ul className="mb-0 small ps-3">
+              {warnings.map((warn, idx) => (
+                <li key={idx}>{warn}</li>
+              ))}
+            </ul>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
+
+      {/* Estado de Erro / Sem Dados */}
+      {error ? (
+        <div className="text-center py-5 rounded-4 bg-dark border border-secondary border-opacity-25">
+          <FaChartLine size={48} className="text-secondary mb-3 opacity-50" />
+          <h3 className="text-white fw-bold">Não foi possível gerar recomendações</h3>
+          <p className="text-danger mb-4">{error}</p>
+          <Link to="/biblioteca" className="btn btn-outline-light">
+            <FaSync className="me-2" /> Ir para Biblioteca e Jogar/Avaliar
+          </Link>
+        </div>
+      ) : (
+        /* Lista de Recomendações */
+        <div className="row g-4">
+          {recommendations.map(game => (
+            <div key={game.appid} className="col-md-3">
+              
+              {/* Card do Jogo */}
+              <GameCard 
+                id={game.appid}
+                title={game.name}
+                genre={game.genero ? game.genero.split(',')[0] : 'Gênero n/a'}
+                // IA não retorna nota/horas do jogo recomendado, passamos 0 ou omitimos
+                rating={0} 
+                hours={0} 
+                image={getGameImage(game.appid)}
+                tag={`${game.probabilidade_finalizar}% Chance`}
+                tagColor={getMatchColor(game.probabilidade_finalizar)}
+              />
+
+              {/* Barra de Probabilidade (Abaixo do Card) */}
+              <div className="mt-3 px-2">
+                <div className="d-flex justify-content-between align-items-center mb-1">
+                  <small className="text-secondary fw-bold" style={{fontSize: '0.7rem'}}>PROBABILIDADE DE FINALIZAR</small>
+                  <small className="fw-bold" style={{color: getMatchColor(game.probabilidade_finalizar)}}>
+                    {game.probabilidade_finalizar}%
+                  </small>
+                </div>
+                
+                <div className="progress bg-dark border border-secondary border-opacity-25" style={{ height: '6px' }}>
+                  <div 
+                    className="progress-bar" 
+                    role="progressbar" 
+                    style={{ 
+                      width: `${game.probabilidade_finalizar}%`, 
+                      backgroundColor: getMatchColor(game.probabilidade_finalizar),
+                      borderRadius: '10px'
+                    }} 
+                  ></div>
+                </div>
+              </div>
+
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
