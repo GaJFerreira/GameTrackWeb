@@ -9,16 +9,14 @@ const Biblioteca = () => {
   const [userData, setUserData] = useState(null);
   const [syncing, setSyncing] = useState(false);
   
+  // Função atualizada para usar imagens de alta qualidade da Steam CDN (HTTPS)
   const getGameImage = (game) => {
-    if (!game.img_logo_url) {
+    if (!game.appid) {
       return "https://via.placeholder.com/400x220?text=Sem+Imagem";
     }
     
-    if (game.img_logo_url.startsWith('http')) {
-      return game.img_logo_url;
-    }
-
-    return `http://media.steampowered.com/steamcommunity/public/images/apps/${game.appid}/${game.img_logo_url}.jpg`;
+    // Imagem "capsule" é ideal para cards horizontais/retangulares
+    return `https://cdn.akamai.steamstatic.com/steam/apps/${game.appid}/capsule_616x353.jpg`;
   };
 
   const fetchData = async () => {
@@ -88,11 +86,12 @@ const Biblioteca = () => {
           {games.map((game) => (
             <div key={game.appid} className="col-6 col-md-3">
               <GameCard 
+                id={game.appid} // <--- Correção: ID passado corretamente
                 title={game.name} 
                 genre={game.genero || "Gênero não definido"} 
                 rating={game.nota_pessoal || 0} 
                 hours={game.horas_jogadas || 0} 
-                image={getGameImage(game)}
+                image={getGameImage(game)} // <--- Correção: Nova lógica de imagem
               />
             </div>
           ))}

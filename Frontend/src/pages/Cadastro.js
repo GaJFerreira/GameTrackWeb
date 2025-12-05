@@ -34,14 +34,14 @@ const Cadastro = () => {
       const payload = {
         email: formData.email,
         password: formData.password,
-        steam_id: formData.steamId 
+        steam_id: formData.steamId  
       };
 
       await api.post('/auth/register', payload);
       
       alert('Conta criada com sucesso!.');
 
-      const loginResponse = await api.post('/auth/loguin',{
+      const loginResponse = await api.post('/auth/login',{
         email: formData.email,
         password: formData.password
       });
