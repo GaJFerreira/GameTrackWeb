@@ -9,7 +9,6 @@ from ..schemas import game_schema
 from ..models import game_model
 
 
-# 2) CLASSE USADA PELO ROUTER E PELO PYTEST
 class SteamService:
     """
     Wrapper apenas para permitir monkeypatch no Pytest.
