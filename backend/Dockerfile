@@ -6,14 +6,11 @@ COPY requirements.txt .
 
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
     && apt-get clean
-
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# copiar arquivos sensíveis
 COPY .env .env
-COPY firebase-credentials.json firebase-credentials.json
 
 EXPOSE 8000
 
