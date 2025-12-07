@@ -1,0 +1,14 @@
+a parte das metas eu não mexi, vamos deixar por version: '3.8'
+
+services:
+  api:
+    build: ./backend  # Aponta para a pasta onde está o Dockerfile
+    container_name: gametrack-backend
+    ports:
+      - "8000:8000"   # Mapeia a porta 8000 do container para a 8000 do seu PC
+    volumes:
+      - ./backend:/app # Espelhamento: o que você editar no VS Code reflete no container na hora
+    env_file:
+      - ./backend/.env # Garante que o container leia suas chaves de API
+    # Comando com --reload para desenvolvimento (atualiza ao salvar arquivos)
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
