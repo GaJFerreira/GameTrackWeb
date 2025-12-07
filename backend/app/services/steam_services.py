@@ -10,14 +10,10 @@ from ..models import game_model
 
 
 class SteamService:
-    """
-    Wrapper apenas para permitir monkeypatch no Pytest.
-    """
     def sync_library(self, user_id: str, steam_id: str):
         return sync_steam_library(user_id, steam_id)
 
 
-# 3) FUNÇÕES COMPLETAS
 STEAM_PLAYER_API_URL = "http://api.steampowered.com"
 STEAM_STORE_API_URL = "https://store.steampowered.com/api/appdetails"
 
@@ -74,17 +70,13 @@ def fetch_player_achievements(steam_id: str, appid: int) -> int:
 
 
 def sync_steam_library(user_id: str, steam_id: str) -> list:
-    """
-    Função principal de sincronização.
-    GARANTIA: Sempre retorna uma lista (nunca None).
-    """
-    print(f"[SYNC] Iniciando sincronização Steam do usuário {user_id}")
+    print(f"Iniciando sincronização completa para {user_id}...")
 
+    if not settings.steam_api_key or settings.steam_api_key == "":
+        print("ERRO CRÍTICO: Chave da Steam (steam_api_key) não encontrada no .env")
+        return []
+    
     api_key = settings.steam_api_key
-    if not api_key:
-        print("[ERRO] steam_api_key AUSENTE no .env")
-        return []  # evita crash no registro
-
     url = (
         f"{STEAM_PLAYER_API_URL}/IPlayerService/GetOwnedGames/v1/"
         f"?key={api_key}&steamid={steam_id}&format=json"
@@ -92,64 +84,116 @@ def sync_steam_library(user_id: str, steam_id: str) -> list:
     )
 
     try:
-        resp = requests.get(url, timeout=15)
-
-        if resp.status_code == 403:
-            print("[ERRO] Steam devolveu 403 – chave inválida ou limitada")
+        response = requests.get(url, timeout=15)
+        
+        if response.status_code == 403:
+             print("Erro 403 Steam: Chave inválida ou perfil privado.")
+             return []
+             
+        response.raise_for_status()
+        data = response.json()
+        
+        if "response" not in data or "games" not in data["response"]:
+            print("Aviso: Biblioteca vazia ou perfil privado.")
             return []
+        
+        steam_games = data["response"]["games"]
+        print(f"Encontrados {len(steam_games)} jogos. Iniciando processamento em lotes...")
 
-        resp.raise_for_status()
-        data = resp.json()
+        batch_buffer = [] 
+        BATCH_SIZE = 10   
+        
+        for idx, game_dict in enumerate(steam_games):
+            if 'appid' not in game_dict: continue
+            
+            appid = game_dict['appid']
+            full_details = fetch_game_details_from_store(appid)
+            
+            if not full_details.get('error'):
+                app_type = full_details.get('type', '').lower()
+                if app_type and app_type != 'game':
+                    continue
+            
+                store_image = full_details.get('header_image')
+                if store_image:
+                    game_dict['img_logo_url'] = store_image
 
-        steam_games = data.get("response", {}).get("games", [])
-        if not steam_games:
-            print("[SYNC] Nenhum jogo encontrado (perfil privado?)")
-            return []
+                game_dict['dados_loja'] = full_details
+                game_dict['descricao'] = full_details.get('short_description')
+                game_dict['descricao_completa'] = full_details.get('detailed_description')
+                game_dict['sobre'] = full_details.get('about_the_game')
+                game_dict['linguas'] = full_details.get('supported_languages')
+                
+                if 'genres' in full_details:
+                    game_dict['genero'] = ', '.join([g['description'] for g in full_details['genres']])
 
-        games_to_sync = []
+                if 'developers' in full_details:
+                    game_dict['desenvolvedor'] = ', '.join(full_details['developers'])
 
-        for g in steam_games[:40]:  # limita 40 para performance
-            appid = g.get("appid")
-            if not appid:
-                continue
+                if 'publishers' in full_details:
+                    game_dict['publisher'] = ', '.join(full_details['publishers'])
+               
+                if 'metacritic' in full_details:
+                    game_dict['metacritic'] = full_details['metacritic'].get('score')
+                
+                if 'release_date' in full_details:
+                    game_dict['data_lancamento'] = full_details['release_date'].get('date')
 
-            details = fetch_game_details_from_store(appid)
+                game_dict['preco'] = None
+                if 'price_overview' in full_details:
+                    price_info = full_details['price_overview']
+                    game_dict['preco'] = {
+                        'moeda': price_info.get('currency'),
+                        'preco_original': price_info.get('initial'),
+                        'preco_final': price_info.get('final'),
+                        'desconto_percentual': price_info.get('discount_percent')
+                    }
 
-            # se der erro, continua, não quebra tudo
-            if details.get("error"):
-                details = {}
+                game_dict['categorias'] = None
+                if 'categories' in full_details:
+                    cats = full_details['categories']
+                    if isinstance(cats, list):
+                        cat_descriptions = [c.get('description', '') for c in cats if isinstance(c, dict) and 'description' in c]
+                        if cat_descriptions:
+                            game_dict['categorias'] = ', '.join(cat_descriptions) 
+                    
+                pc_recs = full_details.get('pc_requirements', {})
+                if isinstance(pc_recs, list): pc_recs = {}
 
-            g["horas_jogadas"] = round(g.get("playtime_forever", 0) / 60)
-            g["status"] = "Iniciado" if g["horas_jogadas"] > 0 else "Não Iniciado"
+                game_dict['requisitos_recomendados'] = pc_recs.get('recommended')
+                game_dict['requisitos_minimos'] = pc_recs.get('minimum')
 
-            g["descricao"] = details.get("short_description")
-            g["descricao_completa"] = details.get("detailed_description")
-            g["sobre"] = details.get("about_the_game")
-            g["linguas"] = details.get("supported_languages")
+            if 'playtime_forever' in game_dict:
+                game_dict['horas_jogadas'] = round(game_dict['playtime_forever'] / 60)
+                game_dict['status'] = 'Iniciado' if game_dict['horas_jogadas'] > 0 else 'Não Iniciado'
+            
+            game_dict['conquistas_totais'] = fetch_total_achievements(appid)
+            if game_dict['conquistas_totais'] > 0:
+                game_dict['conquistas_obtidas'] = fetch_player_achievements(steam_id, appid)
 
-            if "genres" in details:
-                g["genero"] = ", ".join([x["description"] for x in details["genres"]])
-
-            g["conquistas_totais"] = fetch_total_achievements(appid)
-            if g["conquistas_totais"] > 0:
-                g["conquistas_obtidas"] = fetch_player_achievements(steam_id, appid)
-
-            # valida via pydantic
             try:
-                validated = game_schema.GameBase(**g)
-                games_to_sync.append(validated)
+
+                game_data = game_schema.GameBase(**game_dict)
+                batch_buffer.append(game_data)
             except ValidationError as e:
-                print("[ERRO] Pydantic:", e)
+                print(f"Erro validação Pydantic jogo {appid}: {e}")
 
-        # salva no Firestore
-        if games_to_sync:
-            game_model.sync_steam_games_batch(user_id, games_to_sync)
+            if len(batch_buffer) >= BATCH_SIZE:
+                print(f"Salvando lote parcial de {len(batch_buffer)} jogos...")
+                game_model.sync_steam_games_batch(user_id, batch_buffer)
+                batch_buffer = []
 
-        return games_to_sync  # SEMPRE lista
+
+        if batch_buffer:
+            print(f"Salvando lote final de {len(batch_buffer)} jogos...")
+            game_model.sync_steam_games_batch(user_id, batch_buffer)
+        
+        print("Sincronização background finalizada com sucesso.")
+        return []
 
     except Exception as e:
-        print("[ERRO] Falha total na sincronização:", e)
-        return []  # nunca retorna None!
+        print(f"Erro fatal na thread de sincronização: {e}")
+        return []
 
 
 def fetch_steam_user_profile(steam_id: str) -> dict:
@@ -180,8 +224,6 @@ def fetch_steam_user_profile(steam_id: str) -> dict:
     except Exception:
         return {}
 
-
-# 4) EXPORTS
 __all__ = [
     "sync_steam_library",
     "fetch_steam_user_profile",

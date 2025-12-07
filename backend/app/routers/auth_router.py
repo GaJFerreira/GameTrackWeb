@@ -22,11 +22,14 @@ class LoginRequest(BaseModel):
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
     try:
+        # Tenta verificar o token
         decoded = auth.verify_id_token(token)
         return decoded
-    except Exception:
+    except Exception as e:
+        # --- MUDANÇA AQUI: Printar o erro real no terminal ---
+        print(f"ERRO DE VERIFICAÇÃO DE TOKEN: {e}")
+        # -----------------------------------------------------
         raise HTTPException(status_code=401, detail="Token inválido ou expirado")
-
 
 @router.post("/register")
 def register_user(body: RegisterRequest, background_tasks: BackgroundTasks):
