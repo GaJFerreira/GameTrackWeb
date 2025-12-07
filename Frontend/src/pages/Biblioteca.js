@@ -9,13 +9,11 @@ const Biblioteca = () => {
   const [userData, setUserData] = useState(null);
   const [syncing, setSyncing] = useState(false);
   
-  // Função atualizada para usar imagens de alta qualidade da Steam CDN (HTTPS)
   const getGameImage = (game) => {
     if (!game.appid) {
       return "https://via.placeholder.com/400x220?text=Sem+Imagem";
     }
     
-    // Imagem "capsule" é ideal para cards horizontais/retangulares
     return `https://cdn.akamai.steamstatic.com/steam/apps/${game.appid}/capsule_616x353.jpg`;
   };
 
@@ -47,7 +45,7 @@ const Biblioteca = () => {
 
     try {
       await api.post(`/steam/sync/${userData.id}/${userData.steam_id}`);
-      alert("Sincronização finalizada! Atualizando lista...");
+      alert("Iniciando sincronização. Pode levar algum tempo atualizar sua biblioteca.");
       
       const gamesResponse = await api.get(`/games/${userData.id}`);
       setGames(gamesResponse.data);
@@ -86,12 +84,12 @@ const Biblioteca = () => {
           {games.map((game) => (
             <div key={game.appid} className="col-6 col-md-3">
               <GameCard 
-                id={game.appid} // <--- Correção: ID passado corretamente
+                id={game.appid}
                 title={game.name} 
                 genre={game.genero || "Gênero não definido"} 
                 rating={game.nota_pessoal || 0} 
                 hours={game.horas_jogadas || 0} 
-                image={getGameImage(game)} // <--- Correção: Nova lógica de imagem
+                image={getGameImage(game)}
               />
             </div>
           ))}

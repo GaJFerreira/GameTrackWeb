@@ -199,21 +199,73 @@ def prepare_data_for_ai(games_list: list) -> pd.DataFrame | None:
 
 
 def generate_recommendations(user_id: str) -> Dict[str, Any]:
-    
+    # 1. Busca dados brutos
     games_list = game_model.get_user_games(user_id)
+    
+    # 2. Check de Conta Nova / Vazia
+    if not games_list:
+        raise HTTPException(
+            status_code=404, 
+            detail="Nenhum jogo encontrado. Por favor, sincronize sua biblioteca Steam primeiro."
+        )
+
     warnings = analyze_data_coverage(games_list)
 
-    processed_df = prepare_data_for_ai(games_list)
+    # 3. Tenta processar os dados (Blindagem contra erro 500)
+    try:
+        processed_df = prepare_data_for_ai(games_list)
+    except Exception as e:
+        print(f"[IA ERROR] Falha ao processar DataFrame: {e}")
+        # Retorna erro amigável em vez de crashar
+        raise HTTPException(
+            status_code=400, 
+            detail="Erro ao processar dados dos jogos. Tente sincronizar novamente."
+        )
 
-    if processed_df is None or processed_df[processed_df["status"] == GameStatus.nao_iniciado.value].empty:
-        raise HTTPException(status_code=404, detail="Dados insuficientes para IA.")
+    # 4. Valida se tem o que prever
+    if processed_df is None or "status" not in processed_df.columns:
+        raise HTTPException(status_code=404, detail="Dados insuficientes para análise.")
 
-    df_train = processed_df[processed_df["status"] != GameStatus.nao_iniciado.value]
-    df_predict = processed_df[processed_df["status"] == GameStatus.nao_iniciado.value]
+    # Separa Jogados vs Backlog
+    # Garante que GameStatus.nao_iniciado.value seja string correta usada no DF
+    status_nao_iniciado = GameStatus.nao_iniciado.value
+    
+    df_train = processed_df[processed_df["status"] != status_nao_iniciado]
+    df_predict = processed_df[processed_df["status"] == status_nao_iniciado]
 
+    # Se não tem backlog, não tem o que recomendar
+    if df_predict.empty:
+        return {
+            "recommendations": [],
+            "warnings": ["Seu backlog está vazio! Parabéns (ou sincronize mais jogos)."]
+        }
+
+    # Se não tem treino (nunca jogou nada), retorna ordenação simples por metacritic ou aleatória
     if df_train.empty:
-        raise HTTPException(status_code=400, detail="Você precisa jogar alguns jogos para treinar a IA.")
+        # Fallback: Ordena o backlog por Metacritic (se tiver) ou Aleatório
+        print("[IA INFO] Usuário sem histórico de jogos finalizados. Usando ordenação simples.")
+        
+        # Garante que a coluna existe
+        if "metacritic" in df_predict.columns:
+            ranked = df_predict.sort_values(by="metacritic", ascending=False)
+        else:
+            ranked = df_predict
+            
+        final_list = []
+        for _, row in ranked.head(10).iterrows():
+            final_list.append({
+                "appid": int(row["appid"]),
+                "name": str(row["name"]),
+                "probabilidade_finalizar": 50.0, # Valor neutro
+                "genero": str(row.get("genero", ""))
+            })
+            
+        return {
+            "recommendations": final_list,
+            "warnings": ["Jogue e avalie alguns games para ativar a IA personalizada!"]
+        }
 
+    # 5. Treinamento da IA (Se tiver dados suficientes)
     train_features = [
         col for col in processed_df.columns
         if col.startswith("gen_")
@@ -232,28 +284,25 @@ def generate_recommendations(user_id: str) -> Dict[str, Any]:
     y_train = df_train["target_finalizado"]
 
     unique_classes = np.unique(y_train)
-
     df_predict = df_predict.copy()
 
+    # Se o usuário só tem jogos de um tipo (ex: só finalizados ou só abandonados), 
+    # o modelo não consegue aprender a distinguir.
     if len(unique_classes) < 2:
         df_predict["probabilidade_finalizar"] = 0.5
-
     else:
-        model = get_model("random_forest")  # Opções: "logistic", "random_forest", "xgboost", "knn", "svm"
+        try:
+            model = get_model("random_forest") 
+            model.fit(X_train, y_train)
+            
+            # Garante alinhamento das colunas
+            X_pred = df_predict[train_features].reindex(columns=train_features, fill_value=0)
+            df_predict["probabilidade_finalizar"] = model.predict_proba(X_pred)[:, 1]
+        except Exception as e:
+            print(f"[IA TRAIN ERROR] {e}")
+            df_predict["probabilidade_finalizar"] = 0.5
 
-    try:
-        model.fit(X_train, y_train)
-        
-        preds_train = model.predict(X_train)
-        print(f"Acurácia no Treino ({type(model).__name__}): {accuracy_score(y_train, preds_train):.2f}")
-
-        X_pred = df_predict[train_features].reindex(columns=train_features, fill_value=0)
-        
-        df_predict["probabilidade_finalizar"] = model.predict_proba(X_pred)[:, 1]
-
-    except Exception as e:
-         raise HTTPException(status_code=500, detail=f"Erro no modelo IA: {e}")
-
+    # 6. Monta resposta final
     ranked = df_predict.sort_values(by="probabilidade_finalizar", ascending=False)
 
     final_list = []
@@ -261,8 +310,8 @@ def generate_recommendations(user_id: str) -> Dict[str, Any]:
         final_list.append({
             "appid": int(row["appid"]),
             "name": str(row["name"]),
-            "probabilidade_finalizar": round(float(row["probabilidade_finalizar"]) * 100, 2),
-            "genero": str(row["genero"])
+            "probabilidade_finalizar": round(float(row.get("probabilidade_finalizar", 0.5)) * 100, 2),
+            "genero": str(row.get("genero", ""))
         })
 
     return {
