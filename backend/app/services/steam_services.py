@@ -1,4 +1,3 @@
-# 1) IMPORTS
 import requests
 import time
 from fastapi import HTTPException
@@ -189,6 +188,9 @@ def sync_steam_library(user_id: str, steam_id: str) -> list:
             game_model.sync_steam_games_batch(user_id, batch_buffer)
         
         print("Sincronização background finalizada com sucesso.")
+
+        ai_services.train_and_save_model(user_id)
+
         return []
 
     except Exception as e:

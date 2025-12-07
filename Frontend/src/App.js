@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
@@ -47,8 +47,7 @@ function App() {
             element={!isAuthenticated ? <Cadastro /> : <Navigate to="/biblioteca" />} 
           />
 
-          {/* ROTAS PROTEGIDAS (Protected Routes) */}
-          {/* Se NÃO estiver logado, manda pro login */}
+          {/* ROTAS PROTEGIDAS */}
           <Route 
             path="/biblioteca" 
             element={isAuthenticated ? <Biblioteca /> : <Navigate to="/login" />} 
