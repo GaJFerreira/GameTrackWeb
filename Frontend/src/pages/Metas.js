@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaBullseye, FaPlus, FaCalendarAlt, FaTrash, FaCheckCircle, FaHourglassHalf } from 'react-icons/fa';
+import { FaBullseye, FaPlus, FaCalendarAlt, FaTrash, FaHourglassHalf } from 'react-icons/fa';
 import api from '../services/api';
 
 const Metas = () => {
