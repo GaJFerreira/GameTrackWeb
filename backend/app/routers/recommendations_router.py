@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Path, HTTPException
 from fastapi.responses import StreamingResponse
-from ..services.ai_services import generate_recommendations, prepare_data_for_ai
+from ..services.ai_services import generate_recommendations, prepare_data_for_ai, train_and_save_model
 from ..models import game_model
 from typing import List, Dict, Any, Union
 import io
 import pandas as pd
+from fastapi import BackgroundTasks
 
 router = APIRouter(
     prefix="/recommendations",
@@ -57,3 +58,12 @@ async def export_user_data_csv(
     except Exception as e:
         print(f"Erro ao exportar CSV: {e}")
         raise HTTPException(status_code=500, detail=f"Erro ao exportar CSV: {str(e)}")
+    
+@router.post("/train/{user_id}")
+async def force_train_model(
+    background_tasks: BackgroundTasks,
+    user_id: str = Path(..., title="ID do Usuário")
+):
+
+    background_tasks.add_task(train_and_save_model, user_id)
+    return {"message": "Treinamento de IA agendado.", "status": "processing"}
