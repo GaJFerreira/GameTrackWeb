@@ -56,7 +56,7 @@ jobs:
     - name: Install Dependencies
       run: |
         cd Frontend
-        npm install  # <--- AQUI ESTÁ A CORREÇÃO (Era npm ci)
+        npm install
 
     - name: Run Build (Verifica se compila sem erros)
       run: |
