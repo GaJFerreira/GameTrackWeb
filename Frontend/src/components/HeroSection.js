@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FaArrowRight, FaPlay } from 'react-icons/fa';
+import { FaArrowRight } from 'react-icons/fa'; // Removi FaPlay
 
 const HeroSection = () => {
   return (
@@ -17,17 +17,17 @@ const HeroSection = () => {
               <Link to="/recomendacoes" className="btn btn-brand-red btn-lg px-4 d-flex align-items-center gap-2">
                 Começar a Explorar <FaArrowRight />
               </Link>
-              <button className="btn btn-outline-secondary btn-lg px-4 text-white d-flex align-items-center gap-2">
-                <FaPlay size={12} /> Ver Demo
-              </button>
+              
+              {/* 3. BOTÃO 'VER DEMO' REMOVIDO DAQUI */}
+
             </div>
           </div>
           <div className="col-lg-6">
             <div className="card border-0 rounded-4 overflow-hidden position-relative shadow-lg">
               <img src="https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=800" alt="Hero" className="img-fluid" style={{ filter: 'brightness(0.6)' }} />
               <div className="position-absolute bottom-0 start-0 p-4">
-                <span className="text-primary fw-bold text-uppercase small">Em Destaque</span>
-                <h3 className="text-white fw-bold">Cyberpunk Setup</h3>
+  
+                
               </div>
             </div>
           </div>

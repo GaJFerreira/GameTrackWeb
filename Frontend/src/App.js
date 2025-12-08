@@ -3,6 +3,10 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
+// 1. IMPORTAR O TOASTIFY E O CSS DELE
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -14,59 +18,41 @@ import Perfil from './pages/Perfil';
 import Metas from './pages/Metas';
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return !!localStorage.getItem('token'); 
-  });
-
-  const handleLogin = () => {
-    setIsAuthenticated(true);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    setIsAuthenticated(false);
-  };
+  const handleLogin = () => setIsAuthenticated(true);
+  const handleLogout = () => setIsAuthenticated(false);
 
   return (
     <Router>
       <div className="App">
+        {/* 2. ADICIONAR O CONTAINER GLOBAL AQUI (Configurado para Dark Mode) */}
+        <ToastContainer 
+          position="bottom-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="dark"
+        />
+
         <Navbar isLoggedIn={isAuthenticated} />
         
         <Routes>
           <Route path="/" element={<Home />} />
-          
-          {/* Se já estiver logado, redireciona login/cadastro para biblioteca */}
-          <Route 
-            path="/login" 
-            element={!isAuthenticated ? <Login onLogin={handleLogin} /> : <Navigate to="/biblioteca" />} 
-          />
-          <Route 
-            path="/cadastro" 
-            element={!isAuthenticated ? <Cadastro /> : <Navigate to="/biblioteca" />} 
-          />
-
-          {/* ROTAS PROTEGIDAS */}
-          <Route 
-            path="/biblioteca" 
-            element={isAuthenticated ? <Biblioteca /> : <Navigate to="/login" />} 
-          />
-          <Route 
-            path="/recomendacoes" 
-            element={isAuthenticated ? <Recomendacoes /> : <Navigate to="/login" />} 
-          />
-          <Route 
-            path="/metas" 
-            element={isAuthenticated ? <Metas /> : <Navigate to="/login" />} 
-          />
+          <Route path="/login" element={<Login onLogin={handleLogin} />} />
+          <Route path="/cadastro" element={<Cadastro />} />
+          <Route path="/biblioteca" element={<Biblioteca />} />
+          <Route path="/recomendacoes" element={<Recomendacoes />} />
+          <Route path="/jogo/:id" element={<GameDetails />} />
+          <Route path="/metas" element={<Metas />} />
           <Route 
             path="/perfil" 
             element={isAuthenticated ? <Perfil onLogout={handleLogout} /> : <Navigate to="/login" />} 
-          />
-          <Route 
-            path="/jogo/:id" 
-            element={isAuthenticated ? <GameDetails /> : <Navigate to="/login" />} 
           />
         </Routes>
       </div>
