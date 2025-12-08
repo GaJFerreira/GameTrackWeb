@@ -2,7 +2,7 @@ import requests
 import time
 from fastapi import HTTPException
 from pydantic import ValidationError
-
+from app.services import ai_services
 from ..config import settings
 from ..schemas import game_schema
 from ..models import game_model
@@ -103,9 +103,18 @@ def sync_steam_library(user_id: str, steam_id: str) -> list:
         BATCH_SIZE = 10   
         
         for idx, game_dict in enumerate(steam_games):
+
             if 'appid' not in game_dict: continue
             
-            appid = game_dict['appid']
+            raw_id = game_dict['appid']
+            try:
+                appid_int = int(raw_id)
+                game_dict['appid'] = appid_int 
+                appid = appid_int
+            except ValueError:
+                print(f"Pulei um jogo com ID inválido: {raw_id}")
+                continue
+            
             full_details = fetch_game_details_from_store(appid)
             
             if not full_details.get('error'):
