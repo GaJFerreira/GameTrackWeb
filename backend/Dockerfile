@@ -9,8 +9,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends build-essential
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
-
-COPY .env .env
+# COPY .env .env
+# COPY firebase-credentials.json firebase-credentials.json
 
 EXPOSE 8000
 
