@@ -1,37 +1,57 @@
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react'; // Adicionado useEffect
+import { useParams, Link } from 'react-router-dom';
 import { FaStar, FaSave, FaArrowLeft } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import api from '../services/api'; // Importando a API
 
 const GameDetails = () => {
   const { id } = useParams();
 
-  // Simulação de dados do jogo
-  const gameData = {
-    id: id,
-    title: 'Cyberpunk 2077',
-    description: 'Cyberpunk 2077 é uma história de ação e aventura de mundo aberto ambientada em Night City, uma megalópole obcecada por poder, glamour e modificação corporal.',
-    genre: 'RPG / Ação',
-    releaseDate: '2020',
-    developer: 'CD Projekt Red',
-    image: 'https://images.unsplash.com/photo-1533230408703-912440333d64?auto=format&fit=crop&w=800',
-    globalRating: 4.5
-  };
-
+  const [gameData, setGameData] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [userRating, setUserRating] = useState(0);
   const [status, setStatus] = useState('wishlist');
   const [notes, setNotes] = useState('');
 
-  const handleSave = (e) => {
+  useEffect(() => {
+    const fetchGameDetails = async () => {
+      try {
+        setLoading(true);
+        const response = await api.get(`/games/details/${id}`); 
+        
+        setGameData(response.data);
+
+      } catch (error) {
+        console.error("Erro ao buscar detalhes:", error);
+        toast.error("Erro ao carregar informações do jogo.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchGameDetails();
+  }, [id]);
+
+  const handleSave = async (e) => {
     e.preventDefault();
-    // Toast de sucesso
-    toast.success('Informações salvas com sucesso!');
+    try {
+      await api.post(`/games/${id}/interaction`, {
+        status,
+        rating: userRating,
+        notes
+      });
+      toast.success('Informações salvas com sucesso!');
+    } catch (error) {
+      toast.error('Erro ao salvar alterações.');
+    }
   };
+
+  if (loading) return <div className="text-white text-center mt-5">Carregando...</div>;
+  if (!gameData) return <div className="text-white text-center mt-5">Jogo não encontrado.</div>;
 
   return (
     <div className="container py-5">
-      <Link to="/" className="btn btn-outline-secondary mb-4">
+      <Link to="/biblioteca" className="btn btn-outline-secondary mb-4">
         <FaArrowLeft className="me-2" /> Voltar
       </Link>
 
@@ -39,25 +59,29 @@ const GameDetails = () => {
         {/* Coluna da Esquerda */}
         <div className="col-md-4 mb-4">
           <div className="card bg-dark border-0 shadow-lg rounded-4 overflow-hidden">
-            <img src={gameData.image} alt={gameData.title} className="img-fluid" />
+            <img 
+               src={gameData.image || "https://via.placeholder.com/400x600"} 
+               alt={gameData.title} 
+               className="img-fluid" 
+            />
             <div className="card-body">
               <h5 className="text-white fw-bold mb-3">Informações</h5>
-              <p className="text-secondary mb-1">Desenvolvedora: <span className="text-white">{gameData.developer}</span></p>
-              <p className="text-secondary mb-1">Lançamento: <span className="text-white">{gameData.releaseDate}</span></p>
-              <p className="text-secondary mb-0">Gênero: <span className="text-white">{gameData.genre}</span></p>
+              <p className="text-secondary mb-1">Desenvolvedora: <span className="text-white">{gameData.developer || "N/A"}</span></p>
+              <p className="text-secondary mb-1">Lançamento: <span className="text-white">{gameData.releaseDate || "N/A"}</span></p>
+              <p className="text-secondary mb-0">Gênero: <span className="text-white">{gameData.genre || "N/A"}</span></p>
             </div>
           </div>
         </div>
 
-        {/* Coluna da Direita */}
+        {/* Coluna da Direita (Mantendo o layout do seu colega) */}
         <div className="col-md-8">
           <h1 className="display-4 fw-bold text-white mb-2">{gameData.title}</h1>
           <div className="d-flex align-items-center mb-4">
             <span className="badge bg-primary me-2">{gameData.genre}</span>
-            <span className="text-warning fw-bold"><FaStar /> {gameData.globalRating} Global</span>
+            <span className="text-warning fw-bold"><FaStar /> {gameData.globalRating || "S/N"} Global</span>
           </div>
 
-          <p className="text-secondary lead mb-5">{gameData.description}</p>
+          <p className="text-secondary lead mb-5">{gameData.description || "Sem descrição disponível."}</p>
 
           <hr className="border-secondary my-5" />
 

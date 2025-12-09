@@ -1,42 +1,65 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FaBullseye, FaPlus, FaCalendarAlt } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import api from '../services/api';
 
 const Metas = () => {
-  const [goals, setGoals] = useState([
-    { id: 1, game: 'Elden Ring', type: 'Conclusão', target: 'Zerar Campanha', deadline: '2023-12-31', progress: 80 },
-    { id: 2, game: 'Valorant', type: 'Tempo', target: '100 Horas', deadline: '2023-11-20', progress: 45 },
-  ]);
-
+  const [goals, setGoals] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [newGoal, setNewGoal] = useState({ game: '', type: 'Conclusão', target: '', deadline: '' });
 
-  const handleAddGoal = (e) => {
+  // Carregar metas do backend
+  useEffect(() => {
+    const fetchGoals = async () => {
+      try {
+        const authResponse = await api.get('/auth/me');
+        const uid = authResponse.data.user.uid;
+        
+        // Ajuste a rota se necessário (ex: /users/{uid}/goals)
+        const response = await api.get(`/users/${uid}/goals`);
+        setGoals(response.data);
+      } catch (error) {
+        console.error("Erro ao carregar metas", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchGoals();
+  }, []);
+
+  const handleAddGoal = async (e) => {
     e.preventDefault();
     
-    // Validação
+    // Validação simples
     if (!newGoal.game || !newGoal.target) {
         toast.error('Preencha o nome do jogo e o alvo da meta!');
         return;
     }
 
-    const goalToAdd = {
-      id: Date.now(),
-      ...newGoal,
-      progress: 0 
-    };
+    try {
+        const authResponse = await api.get('/auth/me');
+        const uid = authResponse.data.user.uid;
 
-    setGoals([...goals, goalToAdd]);
-    setNewGoal({ game: '', type: 'Conclusão', target: '', deadline: '' }); 
-    
-    // Sucesso
-    toast.success('Meta adicionada com sucesso!');
+        // Envia para o backend
+        const response = await api.post(`/users/${uid}/goals`, newGoal);
+        
+        // Atualiza a lista com o retorno do backend (que deve incluir o ID gerado)
+        setGoals([...goals, response.data]);
+        
+        setNewGoal({ game: '', type: 'Conclusão', target: '', deadline: '' }); 
+        toast.success('Meta criada com sucesso!');
+
+    } catch (error) {
+        console.error(error);
+        toast.error('Erro ao salvar meta.');
+    }
   };
 
   return (
     <div className="container py-5">
       <div className="row">
         
-        {/* Formulário */}
+        {/* Formulário de Nova Meta */}
         <div className="col-lg-4 mb-5">
           <div className="card bg-dark text-white border-0 shadow-lg rounded-4 p-4 sticky-top" style={{top: '20px'}}>
             <h4 className="fw-bold mb-4 d-flex align-items-center gap-2">
@@ -103,8 +126,8 @@ const Metas = () => {
           </div>
 
           <div className="row g-4">
-            {goals.map(goal => (
-              <div key={goal.id} className="col-12">
+            {goals.map((goal, index) => (
+              <div key={goal.id || index} className="col-12">
                 <div className="card bg-dark border border-secondary border-opacity-25 rounded-4 p-4 text-white">
                   <div className="d-flex justify-content-between align-items-start mb-3">
                     <div>
@@ -116,6 +139,7 @@ const Metas = () => {
                     </div>
                     <div className="text-end text-secondary">
                       <div className="d-flex align-items-center gap-2 mb-1">
+                        {/* USO DO ÍCONE QUE ESTAVA FALTANDO */}
                         <FaCalendarAlt /> 
                         <small>{goal.deadline || 'Sem prazo'}</small>
                       </div>
@@ -125,13 +149,13 @@ const Metas = () => {
                   <div>
                     <div className="d-flex justify-content-between small mb-1 text-secondary">
                       <span>Progresso</span>
-                      <span>{goal.progress}%</span>
+                      <span>{goal.progress || 0}%</span>
                     </div>
                     <div className="progress bg-black" style={{ height: '8px' }}>
                       <div 
                         className={`progress-bar ${goal.progress === 100 ? 'bg-success' : 'bg-brand-red'}`} 
                         role="progressbar" 
-                        style={{ width: `${goal.progress}%` }}
+                        style={{ width: `${goal.progress || 0}%` }}
                       ></div>
                     </div>
                   </div>
@@ -139,7 +163,8 @@ const Metas = () => {
               </div>
             ))}
             
-            {goals.length === 0 && (
+            {/* USO DO ÍCONE DE ALVO PARA LISTA VAZIA */}
+            {!loading && goals.length === 0 && (
               <div className="text-center text-secondary py-5">
                 <FaBullseye size={48} className="mb-3 opacity-50" />
                 <p>Nenhuma meta definida. Crie uma para começar!</p>
