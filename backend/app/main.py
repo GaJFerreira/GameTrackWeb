@@ -6,9 +6,15 @@ from .routers import steam_router, user_router, game_router, meta_router, recomm
 app = FastAPI(title="GameTrack API")
 db = database.db
 
+origins = [
+    "http://localhost:3000",
+    "https://gametrack-web.web.app",
+    "https://gametrack-web.firebaseapp.com"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
