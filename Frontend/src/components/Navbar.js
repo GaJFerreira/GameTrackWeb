@@ -18,7 +18,7 @@ const Navbar = ({ isLoggedIn }) => {
 
         <div className="collapse navbar-collapse" id="navbarNav">
           <ul className="navbar-nav mx-auto">
-            <li className="nav-item"><Link className="nav-link text-white mx-2" to="/">Explorar</Link></li>
+            <li className="nav-item"><Link className="nav-link text-white mx-2" to="/">Home</Link></li>
             <li className="nav-item"><Link className="nav-link text-secondary mx-2" to="/recomendacoes">Recomendações</Link></li>
             <li className="nav-item"><Link className="nav-link text-secondary mx-2" to="/biblioteca">Biblioteca</Link></li>
             <li className="nav-item"><Link className="nav-link text-secondary mx-2" to="/metas">Metas</Link></li>
