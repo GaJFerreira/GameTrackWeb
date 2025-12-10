@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaBullseye, FaPlus, FaCalendarAlt, FaGamepad } from 'react-icons/fa';
+import { FaBullseye, FaPlus, FaCalendarAlt, FaGamepad, FaTrash } from 'react-icons/fa'; 
 import { toast } from 'react-toastify';
 import api from '../services/api';
 
@@ -55,6 +55,27 @@ const Metas = () => {
     }
   };
 
+  const handleDeleteGoal = async (goalId) => {
+    if (!window.confirm('Tem certeza que deseja excluir esta meta?')) {
+      return;
+    }
+
+    try {
+      const authResponse = await api.get('/auth/me');
+      const uid = authResponse.data.user.uid;
+
+      await api.delete(`/metas/${uid}/${goalId}`);
+        
+      setGoals(goals.filter(goal => goal.id !== goalId));
+        
+      toast.success('Meta excluída com sucesso!');
+
+    } catch (error) {
+      console.error("Erro ao excluir meta", error);
+      toast.error('Erro ao excluir meta.');
+    }
+  };
+  
   return (
     <div className="container py-5">
       <div className="row">
@@ -127,39 +148,58 @@ const Metas = () => {
           </div>
         </div>
 
-        {/* Lista de Metas */}
+        {/* Lista de Metas com layout corrigido */}
         <div className="col-lg-8">
           <div className="d-flex align-items-center justify-content-between mb-4">
             <h2 className="text-white fw-bold mb-0">Minhas Metas Atuais</h2>
             <span className="badge bg-secondary">{goals.length} Ativas</span>
           </div>
 
-          <div className="row g-4">
+          <div className="row g-3">
             {goals.map((goal, index) => (
               <div key={goal.id || index} className="col-12">
-                <div className="card bg-dark border border-secondary border-opacity-25 rounded-4 p-4 text-white">
-                  <div className="d-flex justify-content-between align-items-start mb-3">
-                    <div>
-                      <h5 className="fw-bold mb-1 text-primary">{goal.game}</h5>
-                      <span className={`badge ${goal.type === 'Tempo' ? 'bg-info' : 'bg-success'} mb-2`}>
+                
+                <div className="card bg-dark border border-secondary border-opacity-25 rounded-4 p-3 text-white metas-card">
+
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    
+                    <div className="d-flex align-items-center gap-3">
+                      <h5 className="fw-bold mb-0 text-primary">{goal.game}</h5>
+                      <span className={`badge ${goal.type === 'Tempo' ? 'bg-info' : 'bg-success'}`}>
                         {goal.type}
                       </span>
-                      <h4 className="fw-bold">{goal.target}</h4>
                     </div>
-                    <div className="text-end text-secondary">
-                      <div className="d-flex align-items-center gap-2 mb-1">
+                    
+                    <div className="d-flex align-items-center gap-3 text-secondary">
+                      <div className="d-flex align-items-center gap-1 small">
                         <FaCalendarAlt /> 
-                        <small>{goal.deadline || 'Sem prazo'}</small>
+                        <span>{goal.deadline || 'Sem prazo'}</span>
                       </div>
+                      
+                      <button 
+                        onClick={() => handleDeleteGoal(goal.id)}
+                        title="Excluir Meta"
+                        style={{ 
+                          background: 'none', 
+                          border: 'none', 
+                          color: 'var(--bs-danger)', 
+                          cursor: 'pointer', 
+                          padding: '0'
+                        }}
+                      >
+                        <FaTrash size={14} />
+                      </button>
                     </div>
                   </div>
 
+                  {/* PROGRESSO */}
                   <div>
-                    <div className="d-flex justify-content-between small mb-1 text-secondary">
+                    <div className="d-flex justify-content-between small mb-1 text-secondary progress-info">
                       <span>Progresso</span>
-                      <span>{goal.progress || 0}%</span>
+                      <span>Alvo: {goal.target} ({goal.progress || 0}%)</span>
                     </div>
-                    <div className="progress bg-black" style={{ height: '8px' }}>
+
+                    <div className="progress bg-black">
                       <div 
                         className={`progress-bar ${goal.progress === 100 ? 'bg-success' : 'bg-brand-red'}`} 
                         role="progressbar" 
@@ -167,16 +207,18 @@ const Metas = () => {
                       ></div>
                     </div>
                   </div>
+
                 </div>
               </div>
             ))}
-            
+
             {!loading && goals.length === 0 && (
               <div className="text-center text-secondary py-5">
                 <FaBullseye size={48} className="mb-3 opacity-50" />
                 <p>Nenhuma meta definida. Crie uma para começar!</p>
               </div>
             )}
+
           </div>
         </div>
 

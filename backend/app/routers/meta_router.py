@@ -17,8 +17,11 @@ def list_metas(user_id: str):
 def create_meta(user_id: str, meta: dict):
     try:
         ref = db.collection("users").document(user_id).collection("metas").document()
+        
+        meta['id'] = ref.id 
+       
         ref.set(meta)
-        return {"message": "Meta criada com sucesso!", "id": ref.id}
+        return meta 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
