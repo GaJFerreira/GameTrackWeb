@@ -281,14 +281,28 @@ const GameDetails = () => {
                   <FaWindows className="me-2" /> Requisitos de Sistema (PC)
                 </h6>
                 <div className="bg-black bg-opacity-25 p-3 rounded-3 text-light small font-monospace" style={{ opacity: 0.85 }}>
-                  {gameData.pc_requirements ? (
-                    // A Steam às vezes retorna isso como string HTML ou objeto {minimum: "...", recommended: "..."}
-                    typeof gameData.pc_requirements === 'string' ? 
-                       <div dangerouslySetInnerHTML={{ __html: gameData.pc_requirements }} /> :
-                       <div dangerouslySetInnerHTML={{ __html: gameData.pc_requirements.minimum }} />
+                  
+                  {/* Verifica se tem requisitos MÍNIMOS */}
+                  {gameData.requisitos_minimos ? (
+                    <div className="mb-3">
+                        <div dangerouslySetInnerHTML={{ __html: gameData.requisitos_minimos }} />
+                    </div>
                   ) : (
-                    "Requisitos não informados."
+                    <p className="mb-2">Requisitos mínimos não informados.</p>
                   )}
+
+                  {/* Verifica se tem requisitos RECOMENDADOS (opcional, mas legal mostrar) */}
+                  {gameData.requisitos_recomendados && (
+                    <div className="mt-3 pt-3 border-top border-secondary border-opacity-25">
+                        <div dangerouslySetInnerHTML={{ __html: gameData.requisitos_recomendados }} />
+                    </div>
+                  )}
+
+                  {/* Caso não tenha nada */}
+                  {!gameData.requisitos_minimos && !gameData.requisitos_recomendados && (
+                    "Detalhes técnicos indisponíveis."
+                  )}
+
                 </div>
               </div>
 
@@ -298,8 +312,8 @@ const GameDetails = () => {
                   <FaGlobe className="me-2" /> Idiomas Suportados
                 </h6>
                 <div className="text-light small" style={{ lineHeight: '1.6', opacity: 0.85 }}>
-                  {gameData.supported_languages ? (
-                    <div dangerouslySetInnerHTML={{ __html: gameData.supported_languages }} />
+                  {gameData.linguas ? (
+                    <div dangerouslySetInnerHTML={{ __html: gameData.linguas }} />
                   ) : (
                     "Não informado."
                   )}

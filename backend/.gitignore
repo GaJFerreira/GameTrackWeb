@@ -21,3 +21,8 @@ __pycache__/
 # Diretórios de build (opcional)
 build/
 dist/
+
+# Dados de modelos treinados
+models_data/
+app/models_data/
+backend/app/models_data/
