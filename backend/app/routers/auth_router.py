@@ -10,27 +10,29 @@ from ..services import user_service, steam_services
 router = APIRouter(prefix="/auth", tags=["Auth"])
 security = HTTPBearer()
 
+
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     steam_id: str
 
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
     try:
         decoded = auth.verify_id_token(token, clock_skew_seconds=30)
         return decoded
-    except Exception as e:
-        print(f"ERRO DE VERIFICAÇÃO DE TOKEN: {e}")
+    except Exception:
         raise HTTPException(status_code=401, detail="Token inválido ou expirado")
 
 
 # ============================================================
-# REGISTER COM VALIDAÇÃO DE STEAM ID (ADICIONADO)
+# REGISTER COM VALIDAÇÃO DE STEAM ID
 # ============================================================
 @router.post("/register")
 async def register_user(body: RegisterRequest, background_tasks: BackgroundTasks):
@@ -51,7 +53,7 @@ async def register_user(body: RegisterRequest, background_tasks: BackgroundTasks
             display_name=body.steam_id
         )
 
-        # 3) MODELO PARA SALVAR NO SEU BANCO LOCAL
+        # 3) CRIA OBJETO PARA SALVAR NO BANCO LOCAL
         user_data_service = UserCreate(
             email=body.email,
             steam_id=body.steam_id,
@@ -59,7 +61,7 @@ async def register_user(body: RegisterRequest, background_tasks: BackgroundTasks
             personaname=body.steam_id,
         )
 
-        # 4) SALVA NO SEU BANCO FIRESTORE / SQL (SEU SERVIÇO)
+        # 4) SALVA NO BANCO VIA SERVICE
         result = user_service.register_user_db(
             user_data_service,
             user_id_firebase=user_firebase.uid
@@ -79,14 +81,16 @@ async def register_user(body: RegisterRequest, background_tasks: BackgroundTasks
             "background_sync": "Iniciado"
         }
 
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException as e:
+        raise e
     except Exception as e:
         print(f"Erro no registro: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-
+# ============================================================
+# LOGIN
+# ============================================================
 @router.post("/login")
 def login_user(body: LoginRequest):
     url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={settings.firebase_web_api_key}"
@@ -95,10 +99,13 @@ def login_user(body: LoginRequest):
         "password": body.password,
         "returnSecureToken": True
     }
+
     resp = requests.post(url, json=payload)
     data = resp.json()
+
     if resp.status_code != 200:
         raise HTTPException(status_code=400, detail=data.get("error", {}).get("message"))
+
     return {
         "id_token": data["idToken"],
         "refresh_token": data["refreshToken"],
@@ -106,6 +113,9 @@ def login_user(body: LoginRequest):
     }
 
 
+# ============================================================
+# ME
+# ============================================================
 @router.get("/me")
 def me(current_user=Depends(verify_token)):
     return {"message": "Token válido.", "user": current_user}

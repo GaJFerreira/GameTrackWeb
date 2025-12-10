@@ -6,30 +6,30 @@ const Perfil = ({ onLogout }) => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   
-  // Estado inicial das estatísticas zerado
   const [stats, setStats] = useState({
     total: 0,
     playing: 0,
     finished: 0,
     notStarted: 0,
-    started: 0, // Iniciados + Pausados
+    started: 0,
     abandoned: 0
   });
+
+  // NOVOS STATES PARA ATUALIZAR STEAM ID
+  const [newSteamId, setNewSteamId] = useState("");
+  const [updateMsg, setUpdateMsg] = useState("");
 
   useEffect(() => {
     const loadProfileData = async () => {
       try {
         setLoading(true);
         
-        // 1. Pega o ID do usuário logado
         const authResponse = await api.get('/auth/me');
         const firebaseUid = authResponse.data.user.uid;
 
-        // 2. Busca dados cadastrais (Avatar, SteamID, etc.)
         const userResponse = await api.get(`/users/${firebaseUid}`);
         setProfile(userResponse.data);
 
-        // 3. Busca a biblioteca para calcular estatísticas
         const gamesResponse = await api.get(`/games/${firebaseUid}`);
         calculateStats(gamesResponse.data);
 
@@ -43,7 +43,6 @@ const Perfil = ({ onLogout }) => {
     loadProfileData();
   }, []);
 
-  // Lógica para processar os jogos e gerar os números do dashboard
   const calculateStats = (games) => {
     const newStats = {
       total: games.length,
@@ -55,7 +54,7 @@ const Perfil = ({ onLogout }) => {
     };
 
     games.forEach(game => {
-      const status = game.status; // Vem do Backend: "Jogando", "Finalizado", etc.
+      const status = game.status;
 
       if (status === "Jogando") newStats.playing++;
       else if (status === "Finalizado") newStats.finished++;
@@ -67,16 +66,38 @@ const Perfil = ({ onLogout }) => {
     setStats(newStats);
   };
 
+  // FUNÇÃO PARA ATUALIZAR STEAM ID
+  const atualizarSteamId = async () => {
+    try {
+      setUpdateMsg("");
+
+      const token = localStorage.getItem("token");
+
+      await api.put(`/users/me/steam-id?new_steam_id=${newSteamId}`, null, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setUpdateMsg("Steam ID atualizado com sucesso!");
+      setProfile(prev => ({ ...prev, steam_id: newSteamId }));
+
+    } catch (err) {
+      const msg = err.response?.data?.detail || "Erro ao atualizar Steam ID.";
+      setUpdateMsg(msg);
+    }
+  };
+
   if (loading) return <div className="text-white text-center mt-5">Carregando perfil...</div>;
   if (!profile) return <div className="text-white text-center mt-5">Erro ao carregar perfil.</div>;
 
   return (
     <div className="container py-5">
       <div className="row">
-        
-        {/* COLUNA DA ESQUERDA: Informações Pessoais */}
+
+        {/* COLUNA DA ESQUERDA */}
         <div className="col-lg-4 mb-4">
           <div className="card bg-dark text-white border-secondary border-opacity-25 shadow-lg rounded-4 p-4 text-center h-100">
+            
+            {/* Avatar */}
             <div className="position-relative d-inline-block mx-auto mb-3">
               <img 
                 src={profile.avatar || "https://via.placeholder.com/150"} 
@@ -84,22 +105,48 @@ const Perfil = ({ onLogout }) => {
                 className="rounded-circle border border-4 border-danger"
                 style={{ width: '150px', height: '150px', objectFit: 'cover' }}
               />
-              {/* Botão decorativo por enquanto */}
               <button className="btn btn-sm btn-primary position-absolute bottom-0 end-0 rounded-circle p-2" title="Editar Avatar">
                 <FaEdit />
               </button>
             </div>
-            
-            {/* Usa o personaname (Nick da Steam) ou o nome real se disponível */}
+
             <h3 className="fw-bold mb-0">{profile.personaname || "Usuário"}</h3>
             <p className="text-secondary mb-3">{profile.realname || "Gamer"}</p>
-            
+
             <div className="text-start bg-black bg-opacity-25 p-3 rounded-3 mb-3">
               <p className="mb-1 small text-secondary">Email:</p>
               <p className="mb-3 text-white fw-bold text-truncate" title={profile.email}>{profile.email}</p>
               
               <p className="mb-1 small text-secondary">Steam ID:</p>
               <p className="mb-0 text-white font-monospace small">{profile.steam_id}</p>
+            </div>
+
+            {/* ============================== */}
+            {/* ATUALIZAR STEAM ID - BLOCO NOVO */}
+            {/* ============================== */}
+            <div className="text-start bg-black bg-opacity-25 p-3 rounded-3 mb-3">
+              <p className="mb-1 small text-secondary">Alterar Steam ID:</p>
+
+              <input 
+                type="text"
+                className="form-control form-control-dark"
+                placeholder="Novo Steam ID (64-bit)"
+                value={newSteamId}
+                onChange={(e) => setNewSteamId(e.target.value)}
+              />
+
+              <button 
+                className="btn btn-brand-red w-100 mt-3 fw-bold"
+                onClick={atualizarSteamId}
+              >
+                Atualizar Steam ID
+              </button>
+
+              {updateMsg && (
+                <div className="alert alert-info small py-2 mt-3">
+                  {updateMsg}
+                </div>
+              )}
             </div>
 
             {profile.profileurl && (
@@ -114,23 +161,22 @@ const Perfil = ({ onLogout }) => {
           </div>
         </div>
 
-        {/* COLUNA DA DIREITA: Estatísticas */}
+        {/* COLUNA DA DIREITA */}
         <div className="col-lg-8">
           <h2 className="text-white fw-bold mb-4">Estatísticas da Biblioteca</h2>
 
-          {/* Card Total */}
           <div className="card bg-gradient-primary text-white border-0 shadow-sm rounded-4 p-4 mb-4" style={{ background: 'linear-gradient(45deg, #8a0000, #b91c1c)' }}>
-             <div className="d-flex justify-content-between align-items-center">
-                <div>
-                   <h2 className="display-4 fw-bold mb-0">{stats.total}</h2>
-                   <p className="mb-0 opacity-75">Total de Jogos na Biblioteca</p>
-                </div>
-                <FaGamepad size={60} className="opacity-25" />
-             </div>
+            <div className="d-flex justify-content-between align-items-center">
+              <div>
+                <h2 className="display-4 fw-bold mb-0">{stats.total}</h2>
+                <p className="mb-0 opacity-75">Total de Jogos na Biblioteca</p>
+              </div>
+              <FaGamepad size={60} className="opacity-25" />
+            </div>
           </div>
 
-          {/* Grid de Status */}
           <div className="row g-3">
+
             {/* Jogando */}
             <div className="col-md-4">
                <div className="p-3 rounded-4 bg-dark border border-primary border-opacity-50 text-center h-100">
@@ -158,7 +204,7 @@ const Perfil = ({ onLogout }) => {
                </div>
             </div>
 
-            {/* Iniciados (Agrupa Iniciado + Pausado) */}
+            {/* Iniciados */}
             <div className="col-md-6">
                <div className="p-3 rounded-4 bg-dark border border-warning border-opacity-25 d-flex align-items-center justify-content-between">
                   <div className="text-start">
@@ -179,9 +225,11 @@ const Perfil = ({ onLogout }) => {
                   <FaBan className="text-danger h4 mb-0" />
                </div>
             </div>
+
           </div>
 
         </div>
+
       </div>
     </div>
   );
