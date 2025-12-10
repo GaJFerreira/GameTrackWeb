@@ -73,7 +73,8 @@ const Recomendacoes = () => {
         <div>
           <h2 className="text-white fw-bold mb-1">Análise de Compatibilidade IA</h2>
           <p className="text-secondary mb-0">
-            Algoritmo baseado em <strong>Random Forest</strong> analisando seus jogos finalizados vs. abandonados.
+            Algoritmo baseado em <strong>Random Forest</strong> analisando seus jogos.
+            Para que o Algoritmo faça recomendacoes melhores ẽ importante que vocẽ jogue e avalie mais titulos na sua biblioteca.
           </p>
         </div>
       </div>

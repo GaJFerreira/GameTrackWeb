@@ -54,27 +54,15 @@ const Cadastro = () => {
       navigate("/biblioteca");
 
     } catch (err) {
-      console.error(err);
-
-} catch (err) {
-    console.error(err);
-
-    // ===============================
-    // NOVA LÓGICA DE ERRO QUE VOCÊ PEDIU
-    // ===============================
-    const msg = err.response?.data?.detail || "Erro ao realizar cadastro.";
-    setError(msg);
-
-} finally {
-    setLoading(false);
-}
-
-      setError(msg);
+        console.error(err);
+        const msg = err.response?.data?.detail || "Erro ao realizar cadastro.";
+        setError(msg);
 
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
+    
+      };
 
   return (
     <div className="container d-flex justify-content-center align-items-center" style={{ minHeight: '80vh' }}>
