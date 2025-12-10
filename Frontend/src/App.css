@@ -46,3 +46,28 @@ body {
   border-color: #8a0000;
   box-shadow: 0 0 0 0.25rem rgba(138, 0, 0, 0.25);
 }
+/* ==== Ajusta o card das metas para não ficar gigante ==== */
+.metas-card {
+  max-width: 850px;     /* Largura ideal */
+  margin: 0 auto;       /* Centraliza igual ao print */
+  border-radius: 12px;
+}
+
+/* ==== Texto acima da barra (Progresso / Alvo) ==== */
+.progress-info {
+  width: 85%;
+  margin: 0 auto 4px auto;
+}
+
+/* ==== Barra de progresso fininha, centralizada e elegante ==== */
+.progress {
+  width: 85%;
+  margin: 0 auto;
+  height: 6px !important;    /* Fina igual à do print */
+  border-radius: 10px;
+  background: #000 !important; /* Fundo escuro */
+}
+
+.progress-bar {
+  border-radius: 10px;
+}
