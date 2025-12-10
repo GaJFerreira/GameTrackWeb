@@ -12,7 +12,6 @@ from datetime import datetime
 from ..models import game_model
 from ..schemas.game_schema import GameStatus, InteresseNivel
 
-# Diretório para salvar os modelos treinados
 MODEL_DIR = "app/models_data"
 os.makedirs(MODEL_DIR, exist_ok=True)
 
@@ -20,7 +19,6 @@ def get_model_path(user_id: str):
     return os.path.join(MODEL_DIR, f"model_{user_id}.pkl")
 
 def get_model_instance():
-    # Mantivemos Random Forest pois performa bem com dados tabulares mistos
     return RandomForestClassifier(
         n_estimators=100, 
         class_weight="balanced", 
@@ -74,18 +72,15 @@ def prepare_data_for_ai(games_list: list) -> pd.DataFrame | None:
     if "status" not in df.columns:
         return None
 
-    # Target: 1 se finalizado, 0 caso contrário
     df["target_finalizado"] = df["status"].apply(
         lambda x: 1 if x == GameStatus.finalizado.value else 0
     )
 
-    # Tratamento Numérico
     df["playtime_forever"] = df.get("playtime_forever", 0).fillna(0)
     df["log_playtime"] = df["playtime_forever"].apply(lambda x: np.log1p(x))
     df["nota_pessoal"] = df.get("nota_pessoal", 0).fillna(0)
     df["metacritic"] = df.get("metacritic", 0).fillna(0)
 
-    # Tratamento de Preço
     def extract_log_final_price(price_data):
         if isinstance(price_data, dict):
             price_raw = price_data.get("preco_final")
@@ -94,7 +89,6 @@ def prepare_data_for_ai(games_list: list) -> pd.DataFrame | None:
         return 0
     df["log_final_price"] = df.get("preco", None).apply(extract_log_final_price)
 
-    # Tratamento de Data
     meses_pt_en = {
         "jan.": "Jan", "fev.": "Feb", "mar.": "Mar", "abr.": "Apr",
         "mai.": "May", "jun.": "Jun", "jul.": "Jul", "ago.": "Aug",
@@ -115,12 +109,10 @@ def prepare_data_for_ai(games_list: list) -> pd.DataFrame | None:
         
     df["idade_lancamento_dias"] = df.get("data_lancamento", "").apply(calcular_idade)
 
-    # Tratamento de Interesse
     df["interesse"] = df.get("interesse", "N/A").fillna("N/A")
     interesse_map = {"N/A": 0, "Baixo": 1, "Médio": 2, "Alto": 3}
     df["nivel_interesse_numerico"] = df["interesse"].map(interesse_map).fillna(0)
 
-    # One-Hot Encoding (Gêneros e Categorias)
     df["genero_list"] = df.get("genero", "").fillna("").astype(str).str.split(", ")
     df["categoria_list"] = df.get("categorias", "").fillna("").astype(str).str.split(", ")
 
@@ -132,15 +124,12 @@ def prepare_data_for_ai(games_list: list) -> pd.DataFrame | None:
     cat_bin = mlb_cat.fit_transform(df["categoria_list"])
     categoria_df = pd.DataFrame(cat_bin, columns=[f"cat_{c}" for c in mlb_cat.classes_])
 
-    # Concatena tudo
     df_final = pd.concat([df.reset_index(drop=True), genero_df, categoria_df], axis=1)
     
     return df_final
 
 def train_and_save_model(user_id: str) -> Dict[str, Any]:
-    """
-    Treina o modelo com os dados atuais e salva o artefato no disco.
-    """
+
     print(f"[IA] Iniciando treinamento para {user_id}...")
     games_list = game_model.get_user_games(user_id)
     
@@ -153,15 +142,17 @@ def train_and_save_model(user_id: str) -> Dict[str, Any]:
         print(f"[IA] Erro ao preparar dados: {e}")
         return {"status": "error", "message": "Erro no processamento de dados."}
 
-    # Separa Treino (Jogados)
-    status_nao_iniciado = GameStatus.nao_iniciado.value
-    df_train = df[df["status"] != status_nao_iniciado]
+    status_ignorados = [
+        GameStatus.nao_iniciado.value, 
+        GameStatus.quero_jogar.value,
+        GameStatus.nao_tenho_interesse.value
+    ]
+    
+    df_train = df[~df["status"].isin(status_ignorados)]
 
     if len(df_train) < 5:
-        # Menos de 5 jogos jogados é muito pouco para treinar
         return {"status": "skipped", "message": "Poucos jogos jogados para treinar IA."}
 
-    # Definição de Features
     feature_cols = [
         col for col in df.columns
         if col.startswith("gen_") or col.startswith("cat_") or col in [
@@ -173,7 +164,6 @@ def train_and_save_model(user_id: str) -> Dict[str, Any]:
     X = df_train[feature_cols]
     y = df_train["target_finalizado"]
 
-    # Se só tem 1 classe (ex: o cara amou todos os jogos), o modelo não aprende nada
     if len(np.unique(y)) < 2:
         return {"status": "skipped", "message": "Necessário ter jogos finalizados E não finalizados para aprender."}
 
@@ -181,7 +171,6 @@ def train_and_save_model(user_id: str) -> Dict[str, Any]:
         model = get_model_instance()
         model.fit(X, y)
         
-        # Salvamos um dicionário com TUDO que precisamos para prever depois
         artifact = {
             "model": model,
             "features": feature_cols,
@@ -198,17 +187,13 @@ def train_and_save_model(user_id: str) -> Dict[str, Any]:
         return {"status": "error", "message": str(e)}
 
 def generate_recommendations(user_id: str) -> Dict[str, Any]:
-    """
-    Carrega o modelo salvo e faz previsões no backlog.
-    Se não houver modelo, tenta treinar ou usa fallback.
-    """
+
     games_list = game_model.get_user_games(user_id)
     warnings = analyze_data_coverage(games_list)
     
     if not games_list:
         raise HTTPException(status_code=404, detail="Biblioteca vazia.")
 
-    # Tenta carregar modelo
     model_path = get_model_path(user_id)
     artifact = None
     
@@ -218,31 +203,43 @@ def generate_recommendations(user_id: str) -> Dict[str, Any]:
         except:
             print("[IA] Arquivo de modelo corrompido. Treinando novo...")
     
-    # Se não tem modelo carregado, tenta treinar agora (cold start)
     if artifact is None:
         train_result = train_and_save_model(user_id)
         if train_result["status"] == "success":
             artifact = joblib.load(model_path)
     
-    # Prepara dados atuais
     try:
         df = prepare_data_for_ai(games_list)
     except:
         raise HTTPException(status_code=400, detail="Erro dados.")
+    
+    status_games = [
+        GameStatus.nao_iniciado.value, 
+        GameStatus.quero_jogar.value,
+        GameStatus.pausado.value,
+        GameStatus.abandonado.value,
+        GameStatus.nao_tenho_interesse.value,
+        GameStatus.jogando.value
+    ]
 
-    # Filtra Backlog
-    status_nao_iniciado = GameStatus.nao_iniciado.value
-    df_predict = df[df["status"] == status_nao_iniciado].copy()
+    df_predict = df[df["status"].isin(status_games)].copy()
 
     if df_predict.empty:
         return {"recommendations": [], "warnings": ["Backlog vazio!"]}
+    
+    pesos_status = {
+        GameStatus.quero_jogar.value:       0.25,  # Prioridade máxima (+25%)
+        GameStatus.jogando.value:           0.15,  # Está ativo, chance alta de terminar (+15%)
+        GameStatus.pausado.value:           0.10,  # Precisa de um empurrão (+10%)
+        GameStatus.nao_iniciado.value:      0.00,  # Neutro (IA decide sozinha)
+        GameStatus.abandonado.value:       -0.15,  # Já desistiu uma vez (-15%)
+        GameStatus.nao_tenho_interesse.value: -0.99  # Enterra o jogo no final da lista (-99%)
+    }
 
-    # Lógica de Predição
     if artifact:
         model = artifact["model"]
         trained_features = artifact["features"]
         
-        # Alinhamento de Colunas (Crucial em ML Produção)
         for col in trained_features:
             if col not in df_predict.columns:
                 df_predict[col] = 0
@@ -252,15 +249,21 @@ def generate_recommendations(user_id: str) -> Dict[str, Any]:
         try:
             probs = model.predict_proba(X_pred)[:, 1]
             df_predict["probabilidade_finalizar"] = probs
+            
+            for status, peso in pesos_status.items():
+                mask = df_predict["status"] == status
+                if mask.any():
+                    df_predict.loc[mask, "probabilidade_finalizar"] += peso
+            
+            df_predict["probabilidade_finalizar"] = df_predict["probabilidade_finalizar"].clip(0, 1)
+            
         except Exception as e:
             print(f"[IA] Erro na predição: {e}. Usando fallback.")
             df_predict["probabilidade_finalizar"] = 0.5
     else:
-        # Fallback se não conseguiu treinar (poucos dados)
         df_predict["probabilidade_finalizar"] = 0.5
         warnings.append("IA em modo básico (dados insuficientes para personalização).")
 
-    # Ordenação e Resposta
     ranked = df_predict.sort_values(by=["probabilidade_finalizar", "metacritic"], ascending=[False, False])
 
     final_list = []

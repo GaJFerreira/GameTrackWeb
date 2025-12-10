@@ -2,17 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { FaStar, FaSave, FaArrowLeft, FaClock, FaTrophy, FaWindows, FaGlobe, FaTag, FaInfoCircle } from 'react-icons/fa';
 import api from '../services/api';
-import { toast } from 'react-toastify'; // Recomendo usar o toast para feedback visual
+import { toast } from 'react-toastify';
 
 const GameDetails = () => {
-  const { id } = useParams(); // 'id' aqui é o AppID da Steam (ex: 730)
+  const { id } = useParams();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [gameData, setGameData] = useState(null);
   const [userData, setUserData] = useState(null);
 
-  // Estados para edição
   const [status, setStatus] = useState('');
   const [userRating, setUserRating] = useState(0);
   const [interest, setInterest] = useState('');
@@ -25,16 +24,12 @@ const GameDetails = () => {
         const user = authResponse.data.user;
         setUserData(user);
 
-        // --- OTIMIZAÇÃO AQUI ---
-        // Em vez de baixar tudo, buscamos apenas ESTE jogo específico
-        // Rota: /games/{user_id}/{game_id}
         const response = await api.get(`/games/${user.uid}/${id}`);
         const foundGame = response.data;
 
         if (foundGame) {
           setGameData(foundGame);
           
-          // Preenche os campos com o que veio do banco
           setStatus(foundGame.status || 'Não Iniciado');
           setUserRating(foundGame.nota_pessoal || 0);
           setInterest(foundGame.interesse || 'N/A');
@@ -43,7 +38,6 @@ const GameDetails = () => {
       } catch (error) {
         console.error("Erro ao carregar detalhes:", error);
         
-        // Se der erro 404, significa que o jogo não está na biblioteca
         if (error.response && error.response.status === 404) {
              toast.error("Jogo não encontrado na sua biblioteca!");
              navigate('/biblioteca');
@@ -65,7 +59,6 @@ const GameDetails = () => {
 
   const formatPrice = (priceObj) => {
     if (!priceObj || !priceObj.preco_final) return "Grátis / Não disponível";
-    // O preço geralmente vem em centavos da Steam (ex: 19990 = R$ 199,90)
     return (priceObj.preco_final / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
@@ -80,12 +73,10 @@ const GameDetails = () => {
     };
 
     try {
-      // Rota PUT: /games/{user_id}/{game_id}
       await api.put(`/games/${userData.uid}/${gameData.appid}`, payload);
       
       toast.success('Informações atualizadas com sucesso!');
       
-      // Atualiza o estado local para refletir na hora sem recarregar
       setGameData({ ...gameData, ...payload });
       
     } catch (error) {
@@ -186,11 +177,15 @@ const GameDetails = () => {
                     value={status} 
                     onChange={(e) => setStatus(e.target.value)}
                   >
-                    <option value="wishlist">Quero Jogar</option>
+                    <option value="Não Iniciado">Não Iniciado</option>
+                    <option value="Quero Jogar">Quero Jogar</option>
                     <option value="Jogando">Jogando</option>
+                    <option value="Pausado">Pausado</option>
                     <option value="Finalizado">Finalizado</option>
                     <option value="Abandonado">Abandonado</option>
-                    <option value="Pausado">Pausado</option>
+                    
+                    <hr />
+                    <option value="Não Tenho Interesse">Não Tenho Interesse</option>
                   </select>
                 </div>
 
