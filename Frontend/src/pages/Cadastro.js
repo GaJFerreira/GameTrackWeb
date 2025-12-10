@@ -14,6 +14,7 @@ const Cadastro = () => {
   
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
   const handleInputChange = (e) => {
     const { value, type } = e.target;
     
@@ -28,50 +29,40 @@ const Cadastro = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
-      const payload = {
+      await api.post("/auth/register", { 
         email: formData.email,
         password: formData.password,
-        steam_id: formData.steamId  
-      };
-
-      await api.post('/auth/register', payload);
+        steam_id: formData.steamId 
+      });
       
-      toast('Conta criada com sucesso!.');
+      toast("Conta criada com sucesso!.");
 
-      const loginResponse = await api.post('/auth/login',{
+      const loginResponse = await api.post("/auth/login", {
         email: formData.email,
         password: formData.password
       });
 
       const { id_token, refresh_token } = loginResponse.data;
-      localStorage.setItem('token', id_token);
-      localStorage.setItem('refreshToken', refresh_token);
+      localStorage.setItem("token", id_token);
+      localStorage.setItem("refreshToken", refresh_token);
 
-      toast('Conta criada! Bem-vindo.');
+      toast("Conta criada! Bem-vindo.");
 
-      navigate('/biblioteca');
+      navigate("/biblioteca");
 
     } catch (err) {
       console.error(err);
-      let mensagem = "Erro ao criar conta.";
 
-      if (err.response) {
-        const data = err.response.data;
-        
-        if (data.detail && Array.isArray(data.detail)) {
-           mensagem = `Erro no campo '${data.detail[0].loc[1]}': ${data.detail[0].msg}`;
-        } 
+      // ===============================
+      // NOVA LÓGICA DE ERRO QUE VOCÊ PEDIU
+      // ===============================
+      const msg = err.response?.data?.detail || "Erro ao realizar cadastro.";
+      setError(msg);
 
-        else if (data.detail && typeof data.detail === 'string') {
-           mensagem = data.detail;
-        }
-      }
-      
-      setError(mensagem);
     } finally {
       setLoading(false);
     }
