@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaBullseye, FaPlus, FaCalendarAlt } from 'react-icons/fa';
+import { FaBullseye, FaPlus, FaCalendarAlt, FaGamepad } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 
@@ -7,17 +7,20 @@ const Metas = () => {
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newGoal, setNewGoal] = useState({ game: '', type: 'Conclusão', target: '', deadline: '' });
+  const [libraryGames, setLibraryGames] = useState([]);
 
-  // Carregar metas do backend
   useEffect(() => {
     const fetchGoals = async () => {
       try {
         const authResponse = await api.get('/auth/me');
         const uid = authResponse.data.user.uid;
         
-        // Ajuste a rota se necessário (ex: /users/{uid}/goals)
-        const response = await api.get(`/users/${uid}/goals`);
+        const response = await api.get(`/metas/${uid}`);
         setGoals(response.data);
+        const gamesResponse = await api.get(`/games/${uid}`);
+        const sortedGames = gamesResponse.data.sort((a, b) => a.name.localeCompare(b.name));
+        setLibraryGames(sortedGames);
+
       } catch (error) {
         console.error("Erro ao carregar metas", error);
       } finally {
@@ -30,7 +33,6 @@ const Metas = () => {
   const handleAddGoal = async (e) => {
     e.preventDefault();
     
-    // Validação simples
     if (!newGoal.game || !newGoal.target) {
         toast.error('Preencha o nome do jogo e o alvo da meta!');
         return;
@@ -40,10 +42,8 @@ const Metas = () => {
         const authResponse = await api.get('/auth/me');
         const uid = authResponse.data.user.uid;
 
-        // Envia para o backend
-        const response = await api.post(`/users/${uid}/goals`, newGoal);
+        const response = await api.post(`/metas/${uid}`, newGoal);
         
-        // Atualiza a lista com o retorno do backend (que deve incluir o ID gerado)
         setGoals([...goals, response.data]);
         
         setNewGoal({ game: '', type: 'Conclusão', target: '', deadline: '' }); 
@@ -67,15 +67,24 @@ const Metas = () => {
             </h4>
             
             <form onSubmit={handleAddGoal}>
+              
               <div className="mb-3">
-                <label className="form-label text-secondary small">Nome do Jogo</label>
-                <input 
-                  type="text" 
-                  className="form-control form-control-dark" 
-                  placeholder="Ex: God of War"
-                  value={newGoal.game}
-                  onChange={e => setNewGoal({...newGoal, game: e.target.value})}
-                />
+                <label className="form-label text-secondary small">Selecione o Jogo</label>
+                <div className="input-group">
+                  <span className="input-group-text bg-dark border-secondary text-secondary"><FaGamepad /></span>
+                  <select 
+                    className="form-select form-control-dark text-white bg-dark border-secondary"
+                    value={newGoal.game}
+                    onChange={e => setNewGoal({...newGoal, game: e.target.value})}
+                  >
+                    <option value="">Escolha um jogo da biblioteca...</option>
+                    {libraryGames.map(game => (
+                      <option key={game.appid} value={game.name}>
+                        {game.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="mb-3">
@@ -139,7 +148,6 @@ const Metas = () => {
                     </div>
                     <div className="text-end text-secondary">
                       <div className="d-flex align-items-center gap-2 mb-1">
-                        {/* USO DO ÍCONE QUE ESTAVA FALTANDO */}
                         <FaCalendarAlt /> 
                         <small>{goal.deadline || 'Sem prazo'}</small>
                       </div>
@@ -163,7 +171,6 @@ const Metas = () => {
               </div>
             ))}
             
-            {/* USO DO ÍCONE DE ALVO PARA LISTA VAZIA */}
             {!loading && goals.length === 0 && (
               <div className="text-center text-secondary py-5">
                 <FaBullseye size={48} className="mb-3 opacity-50" />

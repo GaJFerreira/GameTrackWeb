@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FaSync } from 'react-icons/fa';
 import GameCard from '../components/GameCard';
 import api from '../services/api';
+import { toast } from 'react-toastify'
 
 const Biblioteca = () => {
   const [games, setGames] = useState([]);
@@ -45,14 +46,14 @@ const Biblioteca = () => {
 
     try {
       await api.post(`/steam/sync/${userData.id}/${userData.steam_id}`);
-      alert("Iniciando sincronização. Pode levar algum tempo atualizar sua biblioteca.");
+      toast("Iniciando sincronização. Pode levar algum tempo atualizar sua biblioteca.");
       
       const gamesResponse = await api.get(`/games/${userData.id}`);
       setGames(gamesResponse.data);
 
     } catch (error) {
       console.error("Erro no sync:", error);
-      alert("Erro ao sincronizar. Tente novamente.");
+      toast.error("Erro ao sincronizar. Tente novamente.");
     } finally {
       setSyncing(false);
     }

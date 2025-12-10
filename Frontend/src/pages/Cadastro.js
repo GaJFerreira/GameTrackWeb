@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { toast } from 'react-toastify'
 
 const Cadastro = () => {
   const navigate = useNavigate();
@@ -39,7 +40,7 @@ const Cadastro = () => {
 
       await api.post('/auth/register', payload);
       
-      alert('Conta criada com sucesso!.');
+      toast('Conta criada com sucesso!.');
 
       const loginResponse = await api.post('/auth/login',{
         email: formData.email,
@@ -50,7 +51,7 @@ const Cadastro = () => {
       localStorage.setItem('token', id_token);
       localStorage.setItem('refreshToken', refresh_token);
 
-      alert('Conta criada! Bem-vindo.');
+      toast('Conta criada! Bem-vindo.');
 
       navigate('/biblioteca');
 
