@@ -3,9 +3,11 @@ from pydantic import ConfigDict
 from typing import Optional, Dict, Any, Union
 from enum import Enum
 
-class GameStatus(str, Enum):
-    iniciado = "Iniciado"
+class GameStatus(str, Enum):    
     nao_iniciado = "Não Iniciado"
+    nao_tenho_interesse = "Não Tenho Interesse"
+    quero_jogar = "Quero Jogar"
+    iniciado = "Iniciado"
     jogando = "Jogando"
     finalizado = "Finalizado"
     pausado = "Pausado"
