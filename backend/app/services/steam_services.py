@@ -19,23 +19,16 @@ except ImportError:
             print(f"Aviso: MetaModel não encontrado. Ignorando update de metas para {user_id}.")
 
 
-# -----------------------------
-# CONSTANTES
-# -----------------------------
-STEAM_PLAYER_API_URL = "http://api.steampowered.com"
-STEAM_STORE_API_URL = "https://store.steampowered.com/api/appdetails"
-
-
 # ===========================================================
-# 1) VALIDAÇÃO DO STEAM ID  (USADO NO CADASTRO E UPDATE)
+# VALIDAÇÃO DO STEAM ID (USADO NO CADASTRO E UPDATE)
 # ===========================================================
 async def validate_steam_id(steam_id: str):
     """
-    Verifica se o SteamID existe e se o perfil é público.
-    É usado antes de criar conta e quando usuário muda o SteamID.
+    Verifica se o Steam ID existe e se o perfil é público.
+    Se inválido, lança HTTPException com mensagem clara.
     """
     url = (
-        f"{STEAM_PLAYER_API_URL}/ISteamUser/GetPlayerSummaries/v0002/"
+        f"http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/"
         f"?key={settings.steam_api_key}&steamids={steam_id}"
     )
 
@@ -53,7 +46,7 @@ async def validate_steam_id(steam_id: str):
 
     player = players[0]
 
-    # 3 significa perfil público
+    # communityvisibilitystate = 3 → perfil público
     if player.get("communityvisibilitystate") != 3:
         raise HTTPException(
             status_code=400,
@@ -63,14 +56,20 @@ async def validate_steam_id(steam_id: str):
     return player
 
 
+# URLs base
+STEAM_PLAYER_API_URL = "http://api.steampowered.com"
+STEAM_STORE_API_URL = "https://store.steampowered.com/api/appdetails"
+
+
 class SteamService:
+    """Wrapper simples usado no Auth Router."""
     @staticmethod
     def sync_library(user_id: str, steam_id: str):
         return sync_steam_library(user_id, steam_id)
 
 
 # ===========================================================
-# 2) BUSCAR DETALHES DO JOGO NA STEAM STORE
+# BUSCAR DETALHES DO JOGO NA LOJA STEAM
 # ===========================================================
 def fetch_game_details_from_store(appid: int) -> dict:
     params = {"appids": appid, "cc": "br", "l": "brazilian"}
@@ -95,7 +94,7 @@ def fetch_game_details_from_store(appid: int) -> dict:
 
 
 # ===========================================================
-# 3) CONQUISTAS
+# CONQUISTAS — TOTAL E OBTIDAS PELO JOGADOR
 # ===========================================================
 def fetch_total_achievements(appid: int) -> int:
     url = (
@@ -135,7 +134,7 @@ def fetch_player_achievements(steam_id: str, appid: int) -> int:
 
 
 # ===========================================================
-# 4) SINCRONIZAÇÃO COMPLETA DA BIBLIOTECA
+# SINCRONIZAÇÃO DA BIBLIOTECA
 # ===========================================================
 def sync_steam_library(user_id: str, steam_id: str) -> list:
     print(f"Iniciando sincronização completa para {user_id}...")
@@ -193,7 +192,13 @@ def sync_steam_library(user_id: str, steam_id: str) -> list:
                 if "genres" in full_details:
                     game_dict["genero"] = ", ".join(g["description"] for g in full_details["genres"])
 
-            # Horas jogadas
+                if "developers" in full_details:
+                    game_dict["desenvolvedor"] = ", ".join(full_details["developers"])
+
+                if "publishers" in full_details:
+                    game_dict["publisher"] = ", ".join(full_details["publishers"])
+
+            # Status
             if "playtime_forever" in game_dict:
                 game_dict["horas_jogadas"] = round(game_dict["playtime_forever"] / 60)
                 game_dict["status"] = (
@@ -205,34 +210,38 @@ def sync_steam_library(user_id: str, steam_id: str) -> list:
             if game_dict["conquistas_totais"] > 0:
                 game_dict["conquistas_obtidas"] = fetch_player_achievements(steam_id, appid)
 
-            # Validação
+            # Validação Pydantic
             try:
                 game_data = game_schema.GameBase(**game_dict)
                 batch_buffer.append(game_data)
             except ValidationError as e:
-                print(f"Erro validação Pydantic jogo {appid}: {e}")
+                print(f"Erro validação jogo {appid}: {e}")
 
-            # Salva em lote
+            # Salvar lote
             if len(batch_buffer) >= BATCH_SIZE:
                 game_model.sync_steam_games_batch(user_id, batch_buffer)
                 batch_buffer = []
 
+        # Último lote
         if batch_buffer:
             game_model.sync_steam_games_batch(user_id, batch_buffer)
 
+        print("Atualizando metas...")
         MetaModel.update_goals(user_id)
+
+        print("Treinando IA...")
         ai_services.train_and_save_model(user_id)
 
         print("Sincronização concluída.")
         return []
 
     except Exception as e:
-        print(f"Erro fatal: {e}")
+        print(f"Erro fatal na sincronização: {e}")
         return []
 
 
 # ===========================================================
-# 5) PERFIL DO USUÁRIO (public data)
+# PERFIL — Dados públicos do usuário
 # ===========================================================
 def fetch_steam_user_profile(steam_id: str) -> dict:
     if not settings.steam_api_key:

@@ -38,7 +38,6 @@ const Cadastro = () => {
         password: formData.password,
         steam_id: formData.steamId
       });
-
       toast("Conta criada com sucesso!.");
 
       const loginResponse = await api.post("/auth/login", {
@@ -49,33 +48,26 @@ const Cadastro = () => {
       const { id_token, refresh_token } = loginResponse.data;
       localStorage.setItem("token", id_token);
       localStorage.setItem("refreshToken", refresh_token);
-
+      
       toast("Conta criada! Bem-vindo.");
+
       navigate("/biblioteca");
 
     } catch (err) {
       console.error(err);
 
-      let msg = "Erro ao realizar cadastro.";
+} catch (err) {
+    console.error(err);
 
-      const detail = err.response?.data?.detail;
+    // ===============================
+    // NOVA LÓGICA DE ERRO QUE VOCÊ PEDIU
+    // ===============================
+    const msg = err.response?.data?.detail || "Erro ao realizar cadastro.";
+    setError(msg);
 
-      if (detail) {
-        // Steam privada / Steam ID inválido → STRING
-        if (typeof detail === "string") {
-          msg = detail;
-        }
-
-        // Lista de erros do FastAPI
-        else if (Array.isArray(detail) && detail[0]?.msg) {
-          msg = detail[0].msg;
-        }
-
-        // Objeto { msg: "...", ... }
-        else if (typeof detail === "object" && detail.msg) {
-          msg = detail.msg;
-        }
-      }
+} finally {
+    setLoading(false);
+}
 
       setError(msg);
 
