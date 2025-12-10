@@ -48,7 +48,7 @@ def analyze_data_coverage(games_list: list) -> List[str]:
     if len(interesse_na) > 0:
         pct = round(len(interesse_na) / total * 100)
         warnings.append(
-            f"{pct}% do backlog está sem Nível de Interesse. Defina para melhorar a IA."
+            f"{pct}% do ão iniciados estão sem Nível de Interesse. Defina para um melhor resultado."
         )
 
     nota_na = jogos_nao_iniciados[
@@ -59,7 +59,7 @@ def analyze_data_coverage(games_list: list) -> List[str]:
     if len(nota_na) > 0:
         pct = round(len(nota_na) / total * 100)
         warnings.append(
-            f"{pct}% do backlog está sem Nota Pessoal. Avalie seus jogos jogados."
+            f"{pct}% dos jogos não iniciados estão sem Nota Pessoal. Avalie seus jogos para um melhor resultado."
         )
 
     return warnings
@@ -228,7 +228,7 @@ def generate_recommendations(user_id: str) -> Dict[str, Any]:
         return {"recommendations": [], "warnings": ["Backlog vazio!"]}
     
     pesos_status = {
-        GameStatus.quero_jogar.value:       0.25,  # Prioridade máxima (+25%)
+        GameStatus.quero_jogar.value:       0.20,  # Prioridade máxima (+25%)
         GameStatus.jogando.value:           0.15,  # Está ativo, chance alta de terminar (+15%)
         GameStatus.pausado.value:           0.10,  # Precisa de um empurrão (+10%)
         GameStatus.nao_iniciado.value:      0.00,  # Neutro (IA decide sozinha)
