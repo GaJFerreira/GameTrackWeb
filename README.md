@@ -14,8 +14,12 @@
 
 |  Biblioteca | Detalhes do Jogo |
 |:---:|:---:|
-| ![Biblioteca](./assets/Biblioteca.png) | ![Game Details](./assets/GameDetails.png) |
-| ![Recomendações](./assets/Recomendações.png) |
+| ![Biblioteca](./assets/Biblioteca.png) | ![Game Details](./assets/GameDetails.png)|
+
+| Recomendações |
+|:---:|
+|![Recomendações](./assets/Recomendações.png) |
+
 
 ---
 
@@ -120,4 +124,5 @@ GameTrackWeb/
 - Gabriel Jose Ferreira Nunes Ribeiro
 - Pedro Henrique M. Eichler
 - Wesley Leonardo Jose Costa Filho
+
 
